@@ -143,7 +143,8 @@ def rebuild_bundle(db, enc):
 
 
 def _vital_code(vital):
-    code = VITAL_LOINC.get(vital.name.strip().lower())
+    # models return "blood pressure" or "blood_pressure" depending on which one ran
+    code = VITAL_LOINC.get(vital.name.strip().lower().replace("_", " "))
     if code:
         return CodeableConcept(coding=[Coding(system=LOINC, code=code, display=vital.name)], text=vital.name)
     return CodeableConcept(text=vital.name)

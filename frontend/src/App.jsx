@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react'
 import {
+  clearToken,
   deleteEncounter,
   generateNote,
   getEncounter,
   getHealth,
+  getPortfolio,
+  getToken,
   listEncounters,
+  logout,
   saveNote,
   transcribeEncounter,
 } from './api'
 import StatusBar from './StatusBar'
+import Login from './Login'
+import Portfolio from './Portfolio'
+import Chat from './Chat'
+import EmergencyCard from './EmergencyCard'
 import AudioInput from './AudioInput'
 import EncounterPanel from './EncounterPanel'
 import EncounterList from './EncounterList'
@@ -16,29 +24,72 @@ import TranscriptView from './TranscriptView'
 import NoteEditor from './NoteEditor'
 import FhirPanel from './FhirPanel'
 
+const TABS = [
+  ['scribe', 'Consultation'],
+  ['portfolio', 'My record'],
+  ['chat', 'Ask Vaidya'],
+  ['emergency', 'Emergency card'],
+]
+
+// #emergency/3 opens the card with no sign-in, the way a phone lock screen would
+function emergencyIdFromHash(hash) {
+  const match = hash.match(/^#emergency\/(\d+)$/)
+  return match ? Number(match[1]) : null
+}
+
 export default function App() {
   const [health, setHealth] = useState(null)
+  const [patient, setPatient] = useState(null)
+  const [checking, setChecking] = useState(true)
+  const [view, setView] = useState('scribe')
+
+  const [portfolio, setPortfolio] = useState(null)
   const [encounters, setEncounters] = useState([])
   const [current, setCurrent] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
+  // hash changes do not remount the app, so track it as state
+  const [hash, setHash] = useState(window.location.hash)
+  const publicEmergencyId = emergencyIdFromHash(hash)
+
+  useEffect(() => {
+    const onHashChange = () => setHash(window.location.hash)
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
   useEffect(() => {
     getHealth().then(setHealth).catch(() => setHealth(null))
-    refreshList()
+
+    if (!getToken()) {
+      setChecking(false)
+      return
+    }
+    getPortfolio()
+      .then((p) => {
+        setPortfolio(p)
+        setPatient(p.patient)
+      })
+      .catch(() => clearToken())
+      .finally(() => setChecking(false))
   }, [])
+
+  useEffect(() => {
+    if (patient) refreshList()
+  }, [patient])
 
   async function refreshList() {
     setEncounters(await listEncounters())
   }
 
-  async function selectEncounter(id) {
-    setCurrent(await getEncounter(id))
+  async function refreshPortfolio() {
+    setPortfolio(await getPortfolio())
   }
 
-  async function handleNewEncounter(encounter) {
-    await refreshList()
-    await selectEncounter(encounter.id)
+  async function selectEncounter(id) {
+    setView('scribe')
+    setCurrent(await getEncounter(id))
   }
 
   // every long-running action goes through here, so one place owns busy and error
@@ -48,6 +99,7 @@ export default function App() {
     try {
       setCurrent(await action())
       await refreshList()
+      await refreshPortfolio()
     } catch (e) {
       setError(String(e.message))
     } finally {
@@ -55,58 +107,113 @@ export default function App() {
     }
   }
 
-  async function handleDelete(id) {
-    await deleteEncounter(id)
-    if (current?.id === id) setCurrent(null)
-    await refreshList()
+  async function handleSignOut() {
+    await logout().catch(() => {})
+    clearToken()
+    setPatient(null)
+    setPortfolio(null)
+    setCurrent(null)
+    setEncounters([])
   }
+
+  if (publicEmergencyId) {
+    return (
+      <div className="min-h-screen p-6">
+        <EmergencyCard patientId={publicEmergencyId} />
+      </div>
+    )
+  }
+
+  if (checking) return <p className="p-6 text-sm text-gray-500">Loading…</p>
+  if (!patient) return <Login onSignedIn={(p) => { setPatient(p); refreshPortfolio() }} />
 
   return (
     <div className="min-h-screen">
-      <StatusBar health={health} timings={current} />
+      <StatusBar health={health} timings={current} patient={patient} onSignOut={handleSignOut} />
 
-      <div className="mx-auto grid max-w-6xl gap-5 p-6 md:grid-cols-[1fr_340px]">
-        <div className="flex flex-col gap-5">
-          <AudioInput onEncounter={handleNewEncounter} busy={busy} setBusy={setBusy} />
-
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {error}
-            </p>
-          )}
-
-          {current && (
-            <>
-              <EncounterPanel
-                encounter={current}
-                busy={busy}
-                onTranscribe={() => run(() => transcribeEncounter(current.id))}
-                onGenerateNote={() => run(() => generateNote(current.id))}
-              />
-              <TranscriptView
-                encounterId={current.id}
-                segments={current.segments}
-                onChange={(segments) => setCurrent({ ...current, segments })}
-              />
-              {current.note && (
-                <NoteEditor
-                  note={current.note}
-                  reviewed={current.reviewed}
-                  busy={busy}
-                  onSave={(note) => run(() => saveNote(current.id, note))}
-                />
-              )}
-              <FhirPanel bundle={current.fhir_bundle} valid={current.fhir_valid} />
-            </>
-          )}
+      <div className="border-b border-gray-200 bg-white px-6">
+        <div className="mx-auto flex max-w-6xl gap-1">
+          {TABS.map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setView(key)}
+              className={`border-b-2 px-4 py-2 text-sm ${
+                view === key
+                  ? 'border-gray-900 font-medium text-gray-900'
+                  : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        <EncounterList
-          encounters={encounters}
-          selectedId={current?.id}
-          onSelect={selectEncounter}
-          onDelete={handleDelete}
-        />
+      <div className="mx-auto max-w-6xl p-6">
+        {view === 'portfolio' && portfolio && (
+          <Portfolio portfolio={portfolio} onOpenEncounter={selectEncounter} />
+        )}
+
+        {view === 'chat' && <Chat />}
+
+        {view === 'emergency' && <EmergencyCard patientId={patient.id} />}
+
+        {view === 'scribe' && (
+          <div className="grid gap-5 md:grid-cols-[1fr_340px]">
+            <div className="flex flex-col gap-5">
+              <AudioInput
+                onEncounter={async (enc) => {
+                  await refreshList()
+                  await selectEncounter(enc.id)
+                }}
+                busy={busy}
+                setBusy={setBusy}
+              />
+
+              {error && (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  {error}
+                </p>
+              )}
+
+              {current && (
+                <>
+                  <EncounterPanel
+                    encounter={current}
+                    busy={busy}
+                    onTranscribe={() => run(() => transcribeEncounter(current.id))}
+                    onGenerateNote={(model) => run(() => generateNote(current.id, model))}
+                  />
+                  <TranscriptView
+                    encounterId={current.id}
+                    segments={current.segments}
+                    onChange={(segments) => setCurrent({ ...current, segments })}
+                  />
+                  {current.note && (
+                    <NoteEditor
+                      note={current.note}
+                      reviewed={current.reviewed}
+                      busy={busy}
+                      onSave={(note) => run(() => saveNote(current.id, note))}
+                    />
+                  )}
+                  <FhirPanel bundle={current.fhir_bundle} valid={current.fhir_valid} />
+                </>
+              )}
+            </div>
+
+            <EncounterList
+              encounters={encounters}
+              selectedId={current?.id}
+              onSelect={selectEncounter}
+              onDelete={async (id) => {
+                await deleteEncounter(id)
+                if (current?.id === id) setCurrent(null)
+                await refreshList()
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

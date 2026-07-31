@@ -85,6 +85,96 @@ class ClinicalNote(NoteDraft):
     med_instructions: list[MedInstruction] = Field(default_factory=list)
 
 
+# ---- patient portfolio ----
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class PatientOut(BaseModel):
+    id: int
+    username: str
+    full_name: str
+    dob: Optional[str] = None
+    sex: Optional[str] = None
+    blood_group: Optional[str] = None
+    phone: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    hospital_phone: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class LoginResponse(BaseModel):
+    token: str
+    patient: PatientOut
+
+
+class ConditionOut(BaseModel):
+    id: int
+    name: str
+    since: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class AllergyOut(BaseModel):
+    id: int
+    substance: str
+    reaction: Optional[str] = None
+    severity: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class DoctorOut(BaseModel):
+    id: int
+    name: str
+    specialty: Optional[str] = None
+    hospital: Optional[str] = None
+    phone: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class AppointmentOut(BaseModel):
+    id: int
+    scheduled_for: str
+    reason: Optional[str] = None
+    status: Optional[str] = None
+    doctor: Optional[DoctorOut] = None
+
+    model_config = {"from_attributes": True}
+
+
+class Portfolio(BaseModel):
+    patient: PatientOut
+    conditions: list[ConditionOut] = Field(default_factory=list)
+    allergies: list[AllergyOut] = Field(default_factory=list)
+    appointments: list[AppointmentOut] = Field(default_factory=list)
+    doctors_seen: list[DoctorOut] = Field(default_factory=list)
+    current_medications: list[Medication] = Field(default_factory=list)
+    encounters: list["EncounterOut"] = Field(default_factory=list)
+
+
+# deliberately thin: this is the only thing readable without signing in
+class EmergencyCard(BaseModel):
+    full_name: str
+    dob: Optional[str] = None
+    sex: Optional[str] = None
+    blood_group: Optional[str] = None
+    allergies: list[AllergyOut] = Field(default_factory=list)
+    conditions: list[ConditionOut] = Field(default_factory=list)
+    current_medications: list[Medication] = Field(default_factory=list)
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    hospital_phone: Optional[str] = None
+
+
 # ---- API shapes ----
 
 class SegmentOut(BaseModel):

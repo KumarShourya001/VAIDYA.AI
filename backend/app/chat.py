@@ -1,0 +1,93 @@
+import json
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from . import auth, llm, prompts
+from .models_db import Patient
+
+router = APIRouter(prefix="/api", tags=["chat"])
+
+MAX_HISTORY = 10
+
+
+class ChatTurn(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list[ChatTurn] = []
+
+
+class ChatReply(BaseModel):
+    reply: str
+    llm_ms: int
+
+
+@router.post("/chat", response_model=ChatReply)
+def ask(body: ChatRequest, patient: Patient = Depends(auth.current_patient)):
+    history = [t.model_dump() for t in body.history[-MAX_HISTORY:]]
+    history.append({"role": "user", "content": body.message})
+
+    try:
+        reply, llm_ms = llm.free_chat(prompts.chat_system(record_text(patient)), history)
+    except llm.LLMError as e:
+        raise HTTPException(503, str(e))
+
+    return ChatReply(reply=reply, llm_ms=llm_ms)
+
+
+def record_text(patient):
+    lines = [
+        f"Name: {patient.full_name}",
+        f"Date of birth: {patient.dob or 'not recorded'}",
+        f"Blood group: {patient.blood_group or 'not recorded'}",
+        f"Emergency contact: {patient.emergency_contact_name or 'not recorded'} "
+        f"{patient.emergency_contact_phone or ''}".strip(),
+        f"Hospital number: {patient.hospital_phone or 'not recorded'}",
+        "",
+        "Known conditions:",
+    ]
+    lines += [f"  - {c.name} (since {c.since or 'unknown'}, {c.status})" for c in patient.conditions] or ["  none recorded"]
+
+    lines.append("")
+    lines.append("Allergies:")
+    lines += [f"  - {a.substance}: {a.reaction or 'reaction not recorded'} ({a.severity or 'severity not recorded'})"
+              for a in patient.allergies] or ["  none recorded"]
+
+    lines.append("")
+    lines.append("Appointments:")
+    lines += [f"  - {a.scheduled_for} with {a.doctor.name if a.doctor else 'unknown doctor'}"
+              f" for {a.reason or 'unspecified'} ({a.status})" for a in patient.appointments] or ["  none recorded"]
+
+    latest = next((e for e in patient.encounters if e.note), None)
+    if latest:
+        note = json.loads(latest.note.final_note_json or latest.note.raw_note_json)
+        soap = note.get("soap", {})
+        lines += [
+            "",
+            f"Most recent consultation ({latest.created_at}):",
+            f"  What the patient reported: {soap.get('subjective', '')}",
+            f"  Examination findings: {soap.get('objective', '')}",
+            f"  Doctor's impression: {soap.get('assessment', '')}",
+            f"  Plan: {soap.get('plan', '')}",
+            "",
+            "  Medicines prescribed at that visit:",
+        ]
+        meds = note.get("entities", {}).get("medications", [])
+        lines += [
+            f"    - {m.get('name')}: {m.get('dose') or 'dose not recorded'},"
+            f" {m.get('frequency') or 'frequency not recorded'},"
+            f" {m.get('duration') or 'duration not recorded'}"
+            f"{', ' + m['instruction'] if m.get('instruction') else ''}"
+            for m in meds
+        ] or ["    none recorded"]
+
+        for instruction in note.get("med_instructions", []):
+            lines.append(f"    how to take {instruction['med_name']}: {instruction['plain_text']}")
+    else:
+        lines += ["", "No consultation notes recorded yet."]
+
+    return "\n".join(lines)

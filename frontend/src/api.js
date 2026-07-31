@@ -1,5 +1,15 @@
-async function req(path, options) {
-  const res = await fetch(path, options)
+const TOKEN_KEY = 'vaidya_token'
+
+export const getToken = () => localStorage.getItem(TOKEN_KEY)
+export const setToken = (t) => localStorage.setItem(TOKEN_KEY, t)
+export const clearToken = () => localStorage.removeItem(TOKEN_KEY)
+
+async function req(path, options = {}) {
+  const token = getToken()
+  const headers = { ...options.headers }
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const res = await fetch(path, { ...options, headers })
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`${res.status}: ${body}`)
@@ -7,36 +17,42 @@ async function req(path, options) {
   return res.json()
 }
 
+function json(method, body) {
+  return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+}
+
 export const getHealth = () => req('/api/health')
+
+export const login = (username, password) =>
+  req('/api/auth/login', json('POST', { username, password }))
+
+export const logout = () => req('/api/auth/logout', { method: 'POST' })
+
+export const getPortfolio = () => req('/api/portfolio')
+
+export const getEmergencyCard = (patientId) => req(`/api/emergency/${patientId}`)
+
+export const sendChat = (message, history) => req('/api/chat', json('POST', { message, history }))
 
 export const listEncounters = () => req('/api/encounters')
 
 export const getEncounter = (id) => req(`/api/encounters/${id}`)
 
-export const deleteEncounter = (id) =>
-  req(`/api/encounters/${id}`, { method: 'DELETE' })
+export const deleteEncounter = (id) => req(`/api/encounters/${id}`, { method: 'DELETE' })
 
 export const loadSample = () => req('/api/audio/sample', { method: 'POST' })
 
 export const transcribeEncounter = (id) =>
   req(`/api/encounters/${id}/transcribe`, { method: 'POST' })
 
-export const generateNote = (id) =>
-  req(`/api/encounters/${id}/note`, { method: 'POST' })
-
-export const saveNote = (id, note) =>
-  req(`/api/encounters/${id}/note`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(note),
+export const generateNote = (id, model) =>
+  req(`/api/encounters/${id}/note${model ? `?model=${encodeURIComponent(model)}` : ''}`, {
+    method: 'POST',
   })
 
-export const editSegments = (id, edits) =>
-  req(`/api/encounters/${id}/segments`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(edits),
-  })
+export const saveNote = (id, note) => req(`/api/encounters/${id}/note`, json('PUT', note))
+
+export const editSegments = (id, edits) => req(`/api/encounters/${id}/segments`, json('PATCH', edits))
 
 export function uploadAudio(file, source, patientLabel) {
   const form = new FormData()

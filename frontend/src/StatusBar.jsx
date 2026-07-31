@@ -1,4 +1,4 @@
-export default function StatusBar({ health, timings }) {
+export default function StatusBar({ health, timings, patient, onSignOut }) {
   const dot = (ok) => (ok ? 'bg-green-500' : 'bg-red-500')
 
   return (
@@ -23,9 +23,20 @@ export default function StatusBar({ health, timings }) {
         whisper {health?.asr_model ?? '?'} on {health?.asr_device ?? '?'}
       </span>
 
-      <div className="ml-auto flex gap-3 font-mono text-xs text-gray-700">
-        <span>ASR {timings?.asr_ms != null ? `${timings.asr_ms} ms` : '—'}</span>
-        <span>LLM {timings?.llm_ms != null ? `${timings.llm_ms} ms` : '—'}</span>
+      <div className="ml-auto flex items-center gap-4">
+        <div className="flex gap-3 font-mono text-xs text-gray-700">
+          <span>ASR {timings?.asr_ms != null ? `${timings.asr_ms} ms` : '—'}</span>
+          <span>LLM {timings?.llm_ms != null ? `${timings.llm_ms} ms` : '—'}</span>
+        </div>
+
+        {patient && (
+          <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
+            <span className="text-gray-700">{patient.full_name}</span>
+            <button className="text-xs text-gray-500 hover:text-gray-900" onClick={onSignOut}>
+              sign out
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

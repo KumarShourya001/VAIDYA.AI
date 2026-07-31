@@ -11,24 +11,46 @@ class LLMError(RuntimeError):
     pass
 
 
-def generate_note(transcript_text):
+def generate_note(transcript_text, model=None):
+    model = model or config.LLM_MODEL
     messages = [
         {"role": "system", "content": prompts.NOTE_SYSTEM},
         {"role": "user", "content": prompts.note_user(transcript_text)},
     ]
-    draft, note_ms = _ask_until_valid(messages, NoteDraft)
+    draft, note_ms = _ask_until_valid(messages, NoteDraft, model)
 
-    instructions, instr_ms = _build_instructions(draft.entities.medications)
+    instructions, instr_ms = _build_instructions(draft.entities.medications, model)
 
     note = ClinicalNote(soap=draft.soap, entities=draft.entities, med_instructions=instructions)
     return note, note_ms + instr_ms
+
+
+def free_chat(system_prompt, history, model=None):
+    # no JSON schema here: the reply is prose for a person to read
+    model = model or config.LLM_MODEL
+    turns = [{"role": "system", "content": system_prompt}] + history
+
+    start = time.perf_counter()
+    try:
+        response = requests.post(
+            f"{config.OLLAMA_URL}/api/chat",
+            json={"model": model, "messages": turns, "stream": False,
+                  "options": {"temperature": 0.3}},
+            timeout=300,
+        )
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise LLMError(f"cannot reach Ollama at {config.OLLAMA_URL}: {e}")
+
+    reply = response.json()["message"]["content"].strip()
+    return reply, int((time.perf_counter() - start) * 1000)
 
 
 def transcript_from_segments(segments):
     return "\n".join(f"{(s.speaker or 'unknown').title()}: {s.text}" for s in segments)
 
 
-def _build_instructions(medications):
+def _build_instructions(medications, model):
     if not medications:
         return [], 0
 
@@ -38,7 +60,7 @@ def _build_instructions(medications):
     ]
 
     try:
-        result, elapsed_ms = _ask_until_valid(messages, MedInstructionList)
+        result, elapsed_ms = _ask_until_valid(messages, MedInstructionList, model)
     except LLMError:
         return [_fallback(med) for med in medications], 0
 
@@ -70,7 +92,7 @@ def _fallback(med):
     )
 
 
-def _ask_until_valid(messages, model_cls):
+def _ask_until_valid(messages, model_cls, model):
     schema = model_cls.model_json_schema()
     total_ms = 0
     last_error = None
@@ -80,7 +102,7 @@ def _ask_until_valid(messages, model_cls):
         if last_error:
             turns.append({"role": "user", "content": prompts.retry(last_error)})
 
-        raw, elapsed_ms = _chat(turns, schema)
+        raw, elapsed_ms = _chat(turns, schema, model)
         total_ms += elapsed_ms
 
         try:
@@ -91,13 +113,13 @@ def _ask_until_valid(messages, model_cls):
     raise LLMError(f"{model_cls.__name__} still invalid after {config.LLM_RETRIES + 1} tries: {last_error}")
 
 
-def _chat(messages, schema):
+def _chat(messages, schema, model):
     start = time.perf_counter()
     try:
         response = requests.post(
             f"{config.OLLAMA_URL}/api/chat",
             json={
-                "model": config.LLM_MODEL,
+                "model": model,
                 "messages": messages,
                 "stream": False,
                 "format": schema,

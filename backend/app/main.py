@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import audio, config
 from .db import init_db
-from . import encounters, pipeline
+from . import chat, encounters, pipeline, portfolio
 
 app = FastAPI(title="Vaidya.AI")
 
@@ -17,6 +17,8 @@ app.add_middleware(
 
 app.include_router(encounters.router)
 app.include_router(pipeline.router)
+app.include_router(portfolio.router)
+app.include_router(chat.router)
 
 init_db()
 

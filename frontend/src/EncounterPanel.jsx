@@ -1,6 +1,10 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
+
+const MODELS = ['llama3.2:3b', 'qwen2.5:7b']
 
 export default function EncounterPanel({ encounter, busy, onTranscribe, onGenerateNote }) {
+  const [model, setModel] = useState(MODELS[0])
+
   const rows = [
     ['Source', encounter.source],
     ['Duration', encounter.duration_s ? `${encounter.duration_s} s` : '—'],
@@ -26,17 +30,30 @@ export default function EncounterPanel({ encounter, busy, onTranscribe, onGenera
         ))}
       </dl>
 
-      <div className="mt-4 flex gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <button className={`${btn} bg-gray-900 text-white`} onClick={onTranscribe} disabled={busy}>
           {hasTranscript ? 'Re-transcribe' : 'Transcribe'}
         </button>
+
         <button
           className={`${btn} border border-gray-300 bg-white text-gray-800`}
-          onClick={onGenerateNote}
+          onClick={() => onGenerateNote(model)}
           disabled={busy || !hasTranscript}
         >
           {encounter.note ? 'Regenerate note' : 'Generate note'}
         </button>
+
+        {/* the 7B model is slower but catches medications the 3B one drops */}
+        <select
+          className="rounded border border-gray-300 px-2 py-2 text-sm"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          disabled={busy}
+        >
+          {MODELS.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
       </div>
     </div>
   )

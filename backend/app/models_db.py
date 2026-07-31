@@ -10,11 +10,98 @@ def now():
     return datetime.now().isoformat(timespec="seconds")
 
 
+class Patient(Base):
+    __tablename__ = "patients"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, nullable=False, unique=True)
+    password_hash = Column(String, nullable=False)
+    salt = Column(String, nullable=False)
+    full_name = Column(String, nullable=False)
+    dob = Column(String)
+    sex = Column(String)
+    blood_group = Column(String)
+    phone = Column(String)
+    emergency_contact_name = Column(String)
+    emergency_contact_phone = Column(String)
+    hospital_phone = Column(String)
+    created_at = Column(String, nullable=False, default=now)
+
+    conditions = relationship("MedicalCondition", back_populates="patient",
+                              cascade="all, delete-orphan")
+    allergies = relationship("Allergy", back_populates="patient", cascade="all, delete-orphan")
+    appointments = relationship("Appointment", back_populates="patient",
+                                cascade="all, delete-orphan", order_by="Appointment.scheduled_for")
+    encounters = relationship("Encounter", back_populates="patient", order_by="Encounter.id.desc()")
+
+
+class MedicalCondition(Base):
+    __tablename__ = "conditions"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    since = Column(String)
+    status = Column(String, default="active")  # active | resolved
+    notes = Column(Text)
+
+    patient = relationship("Patient", back_populates="conditions")
+
+
+class Allergy(Base):
+    __tablename__ = "allergies"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
+    substance = Column(String, nullable=False)
+    reaction = Column(String)
+    severity = Column(String)  # mild | moderate | severe
+
+    patient = relationship("Patient", back_populates="allergies")
+
+
+class Doctor(Base):
+    __tablename__ = "doctors"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    specialty = Column(String)
+    hospital = Column(String)
+    phone = Column(String)
+
+
+class Appointment(Base):
+    __tablename__ = "appointments"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
+    doctor_id = Column(Integer, ForeignKey("doctors.id"))
+    scheduled_for = Column(String, nullable=False)
+    reason = Column(String)
+    status = Column(String, default="scheduled")  # scheduled | completed | cancelled
+
+    patient = relationship("Patient", back_populates="appointments")
+    doctor = relationship("Doctor")
+
+
+class AuthSession(Base):
+    __tablename__ = "sessions"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String, nullable=False, unique=True)
+    created_at = Column(String, nullable=False, default=now)
+
+    patient = relationship("Patient")
+
+
 class Encounter(Base):
     __tablename__ = "encounters"
 
     id = Column(Integer, primary_key=True)
     created_at = Column(String, nullable=False, default=now)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="SET NULL"))
+    doctor_id = Column(Integer, ForeignKey("doctors.id"))
     patient_label = Column(String)
     source = Column(String, nullable=False)  # mic | upload | sample
     audio_path = Column(String)
@@ -34,6 +121,8 @@ class Encounter(Base):
                         cascade="all, delete-orphan")
     bundle = relationship("FhirBundle", back_populates="encounter", uselist=False,
                           cascade="all, delete-orphan")
+    patient = relationship("Patient", back_populates="encounters")
+    doctor = relationship("Doctor")
 
 
 class Segment(Base):
