@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: vaidya-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: vaidya-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: VAIDYA_DEMO_MODE
+        value: "true"
+      - key: VAIDYA_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vaidya-db
+          property: connectionString
+
+databases:
+  - name: vaidya-db
+    plan: basic-256mb

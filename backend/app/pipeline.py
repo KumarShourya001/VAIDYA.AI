@@ -1,3 +1,4 @@
+import json
 import shutil
 import uuid
 
@@ -13,6 +14,13 @@ from .schemas import EncounterDetail, EncounterOut
 router = APIRouter(prefix="/api", tags=["pipeline"])
 
 SAMPLE_WAV = config.SAMPLES_DIR / "sample_consult_01.wav"
+SAMPLE_SEGMENTS = config.SAMPLES_DIR / "sample_consult_01.segments.json"
+SAMPLE_NOTE = config.SAMPLES_DIR / "sample_consult_01.note.json"
+
+DEMO_REFUSAL = (
+    "This deployment has no GPU and no local model, so it can only replay the "
+    "bundled sample consultation. Run the project locally to process your own audio."
+)
 
 
 @router.post("/audio/upload", response_model=EncounterOut)
@@ -63,16 +71,21 @@ def transcribe_encounter(encounter_id: int, db: Session = Depends(get_db)):
     if not enc.audio_path:
         raise HTTPException(400, "encounter has no audio")
 
-    wav_path = config.AUDIO_DIR / enc.audio_path
-    if not wav_path.exists():
-        raise HTTPException(404, f"audio file missing: {enc.audio_path}")
+    if config.DEMO_MODE:
+        segs, language, asr_ms = _replay_transcript(enc)
+        asr_label = "precomputed"
+    else:
+        wav_path = config.AUDIO_DIR / enc.audio_path
+        if not wav_path.exists():
+            raise HTTPException(404, f"audio file missing: {enc.audio_path}")
 
-    try:
-        segs, language, asr_ms = asr.transcribe(wav_path)
-    except Exception as e:
-        raise HTTPException(500, f"transcription failed: {e}")
+        try:
+            segs, language, asr_ms = asr.transcribe(wav_path)
+        except Exception as e:
+            raise HTTPException(500, f"transcription failed: {e}")
 
-    speakers.assign(segs, wav_path)
+        speakers.assign(segs, wav_path)
+        asr_label = f"{config.ASR_MODEL} ({asr.device()})"
 
     # re-transcribing replaces the previous run rather than appending to it
     for old in enc.segments:
@@ -91,7 +104,7 @@ def transcribe_encounter(encounter_id: int, db: Session = Depends(get_db)):
 
     enc.language = language
     enc.asr_ms = asr_ms
-    enc.asr_model = f"{config.ASR_MODEL} ({asr.device()})"
+    enc.asr_model = asr_label
     enc.status = "transcribed"
 
     db.commit()
@@ -107,14 +120,16 @@ def generate_note(encounter_id: int, model: str = None, db: Session = Depends(ge
     if not enc.segments:
         raise HTTPException(400, "transcribe the encounter first")
 
-    model = model or config.LLM_MODEL
-    transcript_text = llm.transcript_from_segments(enc.segments)
-    try:
-        note, llm_ms = llm.generate_note(transcript_text, model)
-    except llm.LLMError as e:
-        raise HTTPException(503, str(e))
-
-    raw_json = note.model_dump_json()
+    if config.DEMO_MODE:
+        raw_json, llm_ms, model = _replay_note(enc)
+    else:
+        model = model or config.LLM_MODEL
+        transcript_text = llm.transcript_from_segments(enc.segments)
+        try:
+            note, llm_ms = llm.generate_note(transcript_text, model)
+        except llm.LLMError as e:
+            raise HTTPException(503, str(e))
+        raw_json = note.model_dump_json()
     if enc.note:
         enc.note.raw_note_json = raw_json
         enc.note.updated_at = now()
@@ -133,6 +148,20 @@ def generate_note(encounter_id: int, model: str = None, db: Session = Depends(ge
     db.commit()
     db.refresh(enc)
     return build_detail(enc)
+
+
+def _replay_transcript(enc):
+    if enc.source != "sample" or not SAMPLE_SEGMENTS.exists():
+        raise HTTPException(503, DEMO_REFUSAL)
+    data = json.loads(SAMPLE_SEGMENTS.read_text(encoding="utf-8"))
+    return data["segments"], data["language"], data["asr_ms"]
+
+
+def _replay_note(enc):
+    if enc.source != "sample" or not SAMPLE_NOTE.exists():
+        raise HTTPException(503, DEMO_REFUSAL)
+    data = json.loads(SAMPLE_NOTE.read_text(encoding="utf-8"))
+    return json.dumps(data["note"]), data["llm_ms"], f"{data['llm_model']} (precomputed)"
 
 
 def _create_encounter(db, source, wav_path, patient_label, patient=None):

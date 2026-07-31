@@ -34,7 +34,8 @@ def health():
 
     return {
         "ok": True,
-        "offline": True,  # nothing in the default path talks to the internet
+        "offline": not config.DEMO_MODE,  # local runs never talk to the internet
+        "demo_mode": config.DEMO_MODE,
         "ffmpeg": audio.have_ffmpeg(),
         "ollama": ollama_up,
         "asr_model": config.ASR_MODEL,

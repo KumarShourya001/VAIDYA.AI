@@ -5,10 +5,17 @@ export default function StatusBar({ health, timings, patient, onSignOut }) {
     <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 bg-white px-6 py-3 text-sm">
       <span className="font-semibold text-gray-900">Vaidya.AI</span>
 
-      <span className="flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-green-800">
-        <span className="h-2 w-2 rounded-full bg-green-500" />
-        Offline — processing on device
-      </span>
+      {health?.demo_mode ? (
+        <span className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-900">
+          <span className="h-2 w-2 rounded-full bg-amber-500" />
+          Demo mode — replaying a bundled consultation, no live inference
+        </span>
+      ) : (
+        <span className="flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-green-800">
+          <span className="h-2 w-2 rounded-full bg-green-500" />
+          Offline — processing on device
+        </span>
+      )}
 
       <span className="flex items-center gap-2 text-gray-600">
         <span className={`h-2 w-2 rounded-full ${dot(health?.ffmpeg)}`} />

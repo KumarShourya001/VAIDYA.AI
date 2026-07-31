@@ -103,6 +103,56 @@ The note generator is switchable per request from the Consultation tab.
 llama3.2:3b is the default because the demo needs to stay quick. qwen2.5:7b is
 the better clinical read.
 
+## Deployment
+
+The backend cannot run on a serverless host. faster-whisper plus its CUDA
+runtime is roughly 2 GB against Vercel's 250 MB function limit, Ollama is a
+persistent process with gigabyte weights, a note takes 8 to 35 seconds against a
+10 second function timeout, and the filesystem has to persist between requests.
+So the two halves deploy to different places.
+
+**Frontend to Vercel.** Root directory `frontend`, framework Vite. Set one
+environment variable:
+
+```
+VITE_API_URL=https://<your-backend-host>
+```
+
+**Backend to any container host with a disk** (Render, Railway, Fly). A
+`Dockerfile` and a `render.yaml` blueprint are included. Set:
+
+```
+VAIDYA_DEMO_MODE=true
+VAIDYA_ORIGINS=https://<your-vercel-domain>
+DATABASE_URL=postgresql://...      # optional; falls back to sqlite on the disk
+```
+
+### Demo mode
+
+A cloud host has no GPU and no Ollama, so `VAIDYA_DEMO_MODE=true` makes the
+backend replay precomputed results for the bundled sample instead of running
+models. The whole flow still demonstrates — transcript, speaker labels, note,
+editing, FHIR bundle — and the status bar says plainly that it is replaying
+rather than inferring. Any other audio is refused with an explanation instead of
+hanging or silently failing.
+
+The precomputed files are `data/samples/sample_consult_01.segments.json` and
+`.note.json`, generated on a GPU machine with qwen2.5:7b.
+
+Test it locally before deploying:
+
+```
+cd backend
+.venv\Scripts\python.exe -m uvicorn app.main:app --env-file .env.demo --port 8001
+```
+
+### Deploying does change the privacy story
+
+The whole pitch is that audio and inference stay on the device. A deployed copy
+holds patient records on someone else's server, so it is a showcase of the
+interface, not the product. The honest live demo is still the laptop: full local
+inference, network adapter off. Say which one you are showing.
+
 ## What this is not
 
 Prototype-grade authentication: salted PBKDF2 and random session tokens, but no

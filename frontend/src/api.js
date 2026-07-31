@@ -1,3 +1,7 @@
+// empty locally, so the vite dev proxy handles /api. Set VITE_API_URL when the
+// frontend is deployed separately from the backend.
+const BASE = import.meta.env.VITE_API_URL || ''
+
 const TOKEN_KEY = 'vaidya_token'
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY)
@@ -9,7 +13,7 @@ async function req(path, options = {}) {
   const headers = { ...options.headers }
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch(path, { ...options, headers })
+  const res = await fetch(`${BASE}${path}`, { ...options, headers })
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`${res.status}: ${body}`)

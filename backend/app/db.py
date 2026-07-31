@@ -1,17 +1,21 @@
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-from .config import DB_PATH
+from .config import DATABASE_URL
+
+is_sqlite = DATABASE_URL.startswith("sqlite")
 
 engine = create_engine(
-    f"sqlite:///{DB_PATH}",
-    connect_args={"check_same_thread": False},
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if is_sqlite else {},
+    pool_pre_ping=not is_sqlite,
 )
 
-# SQLite ignores ON DELETE CASCADE unless foreign keys are switched on per connection.
-@event.listens_for(engine, "connect")
-def _fk_on(conn, _):
-    conn.execute("PRAGMA foreign_keys=ON")
+if is_sqlite:
+    # SQLite ignores ON DELETE CASCADE unless foreign keys are on for each connection
+    @event.listens_for(engine, "connect")
+    def _fk_on(conn, _):
+        conn.execute("PRAGMA foreign_keys=ON")
 
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
