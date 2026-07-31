@@ -3,7 +3,7 @@
 Run from the backend directory:  .venv\\Scripts\\python.exe -m app.seed
 This drops and recreates all tables.
 """
-from . import auth
+from . import auth, config
 from .db import Base, SessionLocal, engine
 from .models_db import Allergy, Appointment, Doctor, MedicalCondition, Patient
 
@@ -84,6 +84,14 @@ PATIENTS = [
 def run():
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+
+    # dropping the tables orphans every recording, so clear the audio too
+    removed = 0
+    for wav in config.AUDIO_DIR.glob("*.wav"):
+        wav.unlink()
+        removed += 1
+    if removed:
+        print(f"removed {removed} orphaned recording(s)")
 
     db = SessionLocal()
     doctors = [Doctor(**d) for d in DOCTORS]

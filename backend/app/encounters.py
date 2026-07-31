@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from . import fhir_map
+from . import config, fhir_map
 from .db import get_db
 from .models_db import Encounter, now
 from .schemas import ClinicalNote, EncounterOut, EncounterDetail, SegmentOut, SegmentEdit
@@ -67,9 +67,17 @@ def delete_encounter(encounter_id: int, db: Session = Depends(get_db)):
     enc = db.get(Encounter, encounter_id)
     if not enc:
         raise HTTPException(404, "encounter not found")
+
+    # the recording is the most sensitive thing here, so deleting an encounter
+    # has to take the audio with it, not just the rows that point at it
+    audio_path = config.AUDIO_DIR / enc.audio_path if enc.audio_path else None
+
     db.delete(enc)
     db.commit()
-    return {"deleted": encounter_id}
+
+    if audio_path:
+        audio_path.unlink(missing_ok=True)
+    return {"deleted": encounter_id, "audio_removed": bool(audio_path)}
 
 
 @router.patch("/{encounter_id}/segments", response_model=list[SegmentOut])
