@@ -62,12 +62,16 @@ def transcribe_encounter(encounter_id: int, db: Session = Depends(get_db)):
     if not enc.audio_path:
         raise HTTPException(400, "encounter has no audio")
 
+    wav_path = config.AUDIO_DIR / enc.audio_path
+    if not wav_path.exists():
+        raise HTTPException(404, f"audio file missing: {enc.audio_path}")
+
     try:
-        segs, language, asr_ms = asr.transcribe(enc.audio_path)
+        segs, language, asr_ms = asr.transcribe(wav_path)
     except Exception as e:
         raise HTTPException(500, f"transcription failed: {e}")
 
-    speakers.assign(segs, enc.audio_path)
+    speakers.assign(segs, wav_path)
 
     # re-transcribing replaces the previous run rather than appending to it
     for old in enc.segments:
@@ -95,9 +99,10 @@ def transcribe_encounter(encounter_id: int, db: Session = Depends(get_db)):
 
 
 def _create_encounter(db, source, wav_path, patient_label):
+    # filename only, so the database survives the project being moved
     enc = Encounter(
         source=source,
-        audio_path=str(wav_path),
+        audio_path=wav_path.name,
         patient_label=patient_label,
         duration_s=audio.duration_of(wav_path),
         status="new",
