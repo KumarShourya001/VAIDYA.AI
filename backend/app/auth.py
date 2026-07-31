@@ -26,11 +26,14 @@ def login(db, username, password):
     patient = db.query(Patient).filter(Patient.username == username).first()
     if not patient or not verify_password(password, patient.password_hash, patient.salt):
         return None
+    return start_session(db, patient), patient
 
+
+def start_session(db, patient):
     token = secrets.token_urlsafe(32)
     db.add(AuthSession(patient_id=patient.id, token=token))
     db.commit()
-    return token, patient
+    return token
 
 
 def logout(db, token):

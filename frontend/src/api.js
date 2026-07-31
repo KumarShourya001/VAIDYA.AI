@@ -30,6 +30,8 @@ export const getHealth = () => req('/api/health')
 export const login = (username, password) =>
   req('/api/auth/login', json('POST', { username, password }))
 
+export const register = (details) => req('/api/auth/register', json('POST', details))
+
 export const logout = () => req('/api/auth/logout', { method: 'POST' })
 
 export const getPortfolio = () => req('/api/portfolio')

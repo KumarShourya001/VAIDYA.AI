@@ -91,6 +91,19 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_.-]+$")
+    password: str = Field(min_length=8)
+    full_name: str = Field(min_length=1)
+    dob: Optional[str] = None
+    sex: Optional[str] = None
+    blood_group: Optional[str] = None
+    phone: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    hospital_phone: Optional[str] = None
+
+
 class PatientOut(BaseModel):
     id: int
     username: str

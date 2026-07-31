@@ -3,17 +3,32 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from . import config, fhir_map
+from . import auth, config, fhir_map
 from .db import get_db
-from .models_db import Encounter, now
+from .models_db import Encounter, Patient, now
 from .schemas import ClinicalNote, EncounterOut, EncounterDetail, SegmentOut, SegmentEdit
 
 router = APIRouter(prefix="/api/encounters", tags=["encounters"])
 
 
+def owned(encounter_id, patient, db):
+    """An encounter belonging to someone else must look like it does not exist,
+    so a signed-in patient cannot probe for other people's consultations."""
+    enc = db.get(Encounter, encounter_id)
+    if not enc or enc.patient_id != patient.id:
+        raise HTTPException(404, "encounter not found")
+    return enc
+
+
 @router.get("", response_model=list[EncounterOut])
-def list_encounters(db: Session = Depends(get_db)):
-    return db.query(Encounter).order_by(Encounter.id.desc()).all()
+def list_encounters(patient: Patient = Depends(auth.current_patient),
+                    db: Session = Depends(get_db)):
+    return (
+        db.query(Encounter)
+        .filter(Encounter.patient_id == patient.id)
+        .order_by(Encounter.id.desc())
+        .all()
+    )
 
 
 def build_detail(enc):
@@ -34,18 +49,16 @@ def build_detail(enc):
 
 
 @router.get("/{encounter_id}", response_model=EncounterDetail)
-def get_encounter(encounter_id: int, db: Session = Depends(get_db)):
-    enc = db.get(Encounter, encounter_id)
-    if not enc:
-        raise HTTPException(404, "encounter not found")
-    return build_detail(enc)
+def get_encounter(encounter_id: int, patient: Patient = Depends(auth.current_patient),
+                  db: Session = Depends(get_db)):
+    return build_detail(owned(encounter_id, patient, db))
 
 
 @router.put("/{encounter_id}/note", response_model=EncounterDetail)
-def save_note(encounter_id: int, note: ClinicalNote, db: Session = Depends(get_db)):
-    enc = db.get(Encounter, encounter_id)
-    if not enc:
-        raise HTTPException(404, "encounter not found")
+def save_note(encounter_id: int, note: ClinicalNote,
+              patient: Patient = Depends(auth.current_patient),
+              db: Session = Depends(get_db)):
+    enc = owned(encounter_id, patient, db)
     if not enc.note:
         raise HTTPException(400, "generate a note before saving edits")
 
@@ -63,10 +76,9 @@ def save_note(encounter_id: int, note: ClinicalNote, db: Session = Depends(get_d
 
 
 @router.delete("/{encounter_id}")
-def delete_encounter(encounter_id: int, db: Session = Depends(get_db)):
-    enc = db.get(Encounter, encounter_id)
-    if not enc:
-        raise HTTPException(404, "encounter not found")
+def delete_encounter(encounter_id: int, patient: Patient = Depends(auth.current_patient),
+                     db: Session = Depends(get_db)):
+    enc = owned(encounter_id, patient, db)
 
     # the recording is the most sensitive thing here, so deleting an encounter
     # has to take the audio with it, not just the rows that point at it
@@ -81,10 +93,10 @@ def delete_encounter(encounter_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/{encounter_id}/segments", response_model=list[SegmentOut])
-def edit_segments(encounter_id: int, edits: list[SegmentEdit], db: Session = Depends(get_db)):
-    enc = db.get(Encounter, encounter_id)
-    if not enc:
-        raise HTTPException(404, "encounter not found")
+def edit_segments(encounter_id: int, edits: list[SegmentEdit],
+                  patient: Patient = Depends(auth.current_patient),
+                  db: Session = Depends(get_db)):
+    enc = owned(encounter_id, patient, db)
 
     by_id = {s.id: s for s in enc.segments}
     for e in edits:

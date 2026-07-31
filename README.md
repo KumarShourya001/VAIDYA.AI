@@ -58,7 +58,17 @@ npm --prefix frontend run dev
 
 Open http://localhost:5173 and sign in with `ananya` / `vaidya123`.
 
-## Demo accounts
+## Accounts
+
+Anyone can create one from the sign-in screen. Usernames are 3+ characters,
+passwords 8+. The optional profile fields (blood group, phone, emergency
+contact) are what populate the emergency card, so the form says so rather than
+collecting them silently.
+
+Each patient sees only their own encounters. Another patient's consultation
+returns 404 rather than 403, so a signed-in account cannot probe for what exists.
+
+### Seeded demo accounts
 
 All fictional. Password for each is `vaidya123`.
 

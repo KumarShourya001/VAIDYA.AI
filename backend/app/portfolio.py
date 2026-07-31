@@ -9,6 +9,7 @@ from .models_db import Patient
 from .schemas import (
     AllergyOut, AppointmentOut, ConditionOut, DoctorOut, EmergencyCard,
     EncounterOut, LoginRequest, LoginResponse, PatientOut, Portfolio,
+    RegisterRequest,
 )
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
@@ -20,6 +21,27 @@ def sign_in(body: LoginRequest, db: Session = Depends(get_db)):
     if not result:
         raise HTTPException(401, "wrong username or password")
     token, patient = result
+    return LoginResponse(token=token, patient=PatientOut.model_validate(patient))
+
+
+@router.post("/auth/register", response_model=LoginResponse)
+def register(body: RegisterRequest, db: Session = Depends(get_db)):
+    taken = db.query(Patient).filter(Patient.username == body.username).first()
+    if taken:
+        raise HTTPException(409, "that username is already taken")
+
+    password_hash, salt = auth.hash_password(body.password)
+    patient = Patient(
+        password_hash=password_hash,
+        salt=salt,
+        **body.model_dump(exclude={"password"}),
+    )
+    db.add(patient)
+    db.commit()
+    db.refresh(patient)
+
+    # sign the new account in straight away rather than bouncing back to the form
+    token = auth.start_session(db, patient)
     return LoginResponse(token=token, patient=PatientOut.model_validate(patient))
 
 

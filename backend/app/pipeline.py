@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from . import asr, audio, auth, config, fhir_map, llm, speakers
 from .db import get_db
-from .encounters import build_detail
+from .encounters import build_detail, owned
 from .models_db import Encounter, Note, Segment, now
 from .schemas import EncounterDetail, EncounterOut
 
@@ -28,7 +28,7 @@ def upload_audio(
     file: UploadFile = File(...),
     source: str = Form("upload"),
     patient_label: str = Form(None),
-    patient=Depends(auth.optional_patient),
+    patient=Depends(auth.current_patient),
     db: Session = Depends(get_db),
 ):
     if not audio.have_ffmpeg():
@@ -51,7 +51,7 @@ def upload_audio(
 
 
 @router.post("/audio/sample", response_model=EncounterOut)
-def load_sample(patient=Depends(auth.optional_patient), db: Session = Depends(get_db)):
+def load_sample(patient=Depends(auth.current_patient), db: Session = Depends(get_db)):
     if not SAMPLE_WAV.exists():
         raise HTTPException(500, "bundled sample missing; run scripts/make_sample.ps1")
 
@@ -64,10 +64,9 @@ def load_sample(patient=Depends(auth.optional_patient), db: Session = Depends(ge
 
 
 @router.post("/encounters/{encounter_id}/transcribe", response_model=EncounterDetail)
-def transcribe_encounter(encounter_id: int, db: Session = Depends(get_db)):
-    enc = db.get(Encounter, encounter_id)
-    if not enc:
-        raise HTTPException(404, "encounter not found")
+def transcribe_encounter(encounter_id: int, patient=Depends(auth.current_patient),
+                         db: Session = Depends(get_db)):
+    enc = owned(encounter_id, patient, db)
     if not enc.audio_path:
         raise HTTPException(400, "encounter has no audio")
 
@@ -113,10 +112,10 @@ def transcribe_encounter(encounter_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/encounters/{encounter_id}/note", response_model=EncounterDetail)
-def generate_note(encounter_id: int, model: str = None, db: Session = Depends(get_db)):
-    enc = db.get(Encounter, encounter_id)
-    if not enc:
-        raise HTTPException(404, "encounter not found")
+def generate_note(encounter_id: int, model: str = None,
+                  patient=Depends(auth.current_patient),
+                  db: Session = Depends(get_db)):
+    enc = owned(encounter_id, patient, db)
     if not enc.segments:
         raise HTTPException(400, "transcribe the encounter first")
 
