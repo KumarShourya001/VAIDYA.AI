@@ -36,6 +36,13 @@ export const logout = () => req('/api/auth/logout', { method: 'POST' })
 
 export const getPortfolio = () => req('/api/portfolio')
 
+export const saveProfile = (profile) => req('/api/portfolio/profile', json('PUT', profile))
+
+export const saveConditions = (conditions) =>
+  req('/api/portfolio/conditions', json('PUT', conditions))
+
+export const saveAllergies = (allergies) => req('/api/portfolio/allergies', json('PUT', allergies))
+
 export const getEmergencyCard = (patientId) => req(`/api/emergency/${patientId}`)
 
 export const sendChat = (message, history) => req('/api/chat', json('POST', { message, history }))

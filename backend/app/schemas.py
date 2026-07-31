@@ -124,6 +124,31 @@ class LoginResponse(BaseModel):
     patient: PatientOut
 
 
+# the editable shapes: what a patient may change about their own record
+class ProfileIn(BaseModel):
+    full_name: str = Field(min_length=1)
+    dob: Optional[str] = None
+    sex: Optional[str] = None
+    blood_group: Optional[str] = None
+    phone: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    hospital_phone: Optional[str] = None
+
+
+class ConditionIn(BaseModel):
+    name: str = Field(min_length=1)
+    since: Optional[str] = None
+    status: Literal["active", "resolved"] = "active"
+    notes: Optional[str] = None
+
+
+class AllergyIn(BaseModel):
+    substance: str = Field(min_length=1)
+    reaction: Optional[str] = None
+    severity: Optional[Literal["mild", "moderate", "severe"]] = None
+
+
 class ConditionOut(BaseModel):
     id: int
     name: str

@@ -151,7 +151,11 @@ export default function App() {
 
       <div className="mx-auto max-w-6xl p-6">
         {view === 'portfolio' && portfolio && (
-          <Portfolio portfolio={portfolio} onOpenEncounter={selectEncounter} />
+          <Portfolio
+            portfolio={portfolio}
+            onOpenEncounter={selectEncounter}
+            onSaved={refreshPortfolio}
+          />
         )}
 
         {view === 'chat' && <Chat />}

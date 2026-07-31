@@ -5,11 +5,11 @@ from sqlalchemy.orm import Session
 
 from . import auth
 from .db import get_db
-from .models_db import Patient
+from .models_db import Allergy, MedicalCondition, Patient
 from .schemas import (
-    AllergyOut, AppointmentOut, ConditionOut, DoctorOut, EmergencyCard,
-    EncounterOut, LoginRequest, LoginResponse, PatientOut, Portfolio,
-    RegisterRequest,
+    AllergyIn, AllergyOut, AppointmentOut, ConditionIn, ConditionOut, DoctorOut,
+    EmergencyCard, EncounterOut, LoginRequest, LoginResponse, PatientOut,
+    Portfolio, ProfileIn, RegisterRequest,
 )
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
@@ -71,6 +71,48 @@ def my_portfolio(patient: Patient = Depends(auth.current_patient)):
         current_medications=current_medications(patient),
         encounters=[EncounterOut.model_validate(e) for e in patient.encounters],
     )
+
+
+@router.put("/portfolio/profile", response_model=PatientOut)
+def save_profile(body: ProfileIn, patient: Patient = Depends(auth.current_patient),
+                 db: Session = Depends(get_db)):
+    for field, value in body.model_dump().items():
+        setattr(patient, field, value)
+    db.commit()
+    db.refresh(patient)
+    return PatientOut.model_validate(patient)
+
+
+# conditions and allergies are saved as whole lists rather than row at a time:
+# the editor hands back what the list should now be, which keeps deletes simple
+@router.put("/portfolio/conditions", response_model=list[ConditionOut])
+def save_conditions(body: list[ConditionIn], patient: Patient = Depends(auth.current_patient),
+                    db: Session = Depends(get_db)):
+    for existing in patient.conditions:
+        db.delete(existing)
+    db.flush()
+
+    for item in body:
+        db.add(MedicalCondition(patient_id=patient.id, **item.model_dump()))
+
+    db.commit()
+    db.refresh(patient)
+    return [ConditionOut.model_validate(c) for c in patient.conditions]
+
+
+@router.put("/portfolio/allergies", response_model=list[AllergyOut])
+def save_allergies(body: list[AllergyIn], patient: Patient = Depends(auth.current_patient),
+                   db: Session = Depends(get_db)):
+    for existing in patient.allergies:
+        db.delete(existing)
+    db.flush()
+
+    for item in body:
+        db.add(Allergy(patient_id=patient.id, **item.model_dump()))
+
+    db.commit()
+    db.refresh(patient)
+    return [AllergyOut.model_validate(a) for a in patient.allergies]
 
 
 @router.get("/emergency/{patient_id}", response_model=EmergencyCard)

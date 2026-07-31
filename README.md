@@ -82,7 +82,10 @@ All fictional. Password for each is `vaidya123`.
 
 - **Consultation** — record, upload or load the bundled sample, transcribe, label
   speakers, generate the note, edit every field, inspect the FHIR bundle.
-- **My record** — the patient's portfolio.
+- **My record** — the patient's portfolio. "Edit record" makes the profile,
+  medical conditions and allergies editable: add rows, remove rows, change any
+  field, save. Current medications are not editable here; they come from the
+  most recent consultation note and are corrected on the note itself.
 - **Ask Vaidya** — a chatbot grounded in that patient's record. It explains the
   note, repeats what the doctor prescribed, and refuses to recommend or change
   any medication. Emergency symptoms trigger an escalation message.
@@ -136,6 +139,33 @@ VAIDYA_DEMO_MODE=true
 VAIDYA_ORIGINS=https://<your-vercel-domain>
 DATABASE_URL=postgresql://...      # optional; falls back to sqlite on the disk
 ```
+
+### Hosted database
+
+Set `DATABASE_URL` and nothing is written to a local file. Any managed Postgres
+works; Neon and Supabase both have a free tier that needs no card.
+
+1. Create a Postgres database on the provider.
+2. Copy the connection string. If it begins `postgres://`, change that prefix to
+   `postgresql://` — SQLAlchemy needs the longer form.
+3. Set it as `DATABASE_URL` on the backend host, and locally in `backend/.env`
+   if you want to point your laptop at the same database.
+4. Create the tables and demo patients:
+
+```
+cd backend
+set DATABASE_URL=postgresql://...
+.venv\Scripts\python.exe -m app.seed
+```
+
+The schema compiles cleanly for Postgres — `SERIAL` keys, cascading foreign
+keys — and the same code runs on either engine. Only the SQLite foreign-key
+pragma is conditional.
+
+One caveat: uploaded recordings still go to `VAIDYA_DATA_DIR` on the host's
+filesystem, not into the database. On a host without a persistent disk they
+disappear when the container restarts. In demo mode nothing is uploaded, so it
+does not arise; if you want real uploads in the cloud, they need object storage.
 
 ### Demo mode
 
