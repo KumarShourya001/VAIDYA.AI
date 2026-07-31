@@ -1,18 +1,16 @@
 services:
+  # the API. Demo mode is on because no cloud tier here has a GPU or Ollama.
   - type: web
     name: vaidya-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
-    disk:
-      name: vaidya-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: VAIDYA_DEMO_MODE
         value: "true"
+      # set to the static site's URL once Render has assigned it
       - key: VAIDYA_ORIGINS
         sync: false
       - key: DATABASE_URL
@@ -20,6 +18,21 @@ services:
           name: vaidya-db
           property: connectionString
 
+  # the React build, served as static files
+  - type: web
+    name: vaidya-web
+    runtime: static
+    buildCommand: npm --prefix frontend ci && npm --prefix frontend run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      # set to the API's URL once Render has assigned it
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
 databases:
   - name: vaidya-db
-    plan: basic-256mb
+    plan: free
