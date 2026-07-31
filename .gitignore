@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+
+node_modules/
+dist/
+
+# per-run data; the bundled sample under data/samples/ is committed on purpose
+backend/data/audio/
+backend/data/vaidya.db

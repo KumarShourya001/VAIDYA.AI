@@ -1,0 +1,112 @@
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
+
+# ---- clinical note (this is also the JSON contract the LLM must return) ----
+
+class Symptom(BaseModel):
+    name: str
+    duration: Optional[str] = None
+    severity: Optional[str] = None
+    quote: Optional[str] = None
+
+
+class Vital(BaseModel):
+    name: str
+    value: str
+    unit: Optional[str] = None
+
+
+class Diagnosis(BaseModel):
+    text: str
+    status: Literal["suspected", "confirmed", "ruled_out"] = "suspected"
+
+
+class Medication(BaseModel):
+    name: str
+    dose: Optional[str] = None
+    route: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    instruction: Optional[str] = None
+
+
+class MedInstruction(BaseModel):
+    med_name: str
+    plain_text: str
+    timing: Optional[str] = None
+    total_days: Optional[str] = None
+    warnings: list[str] = Field(default_factory=list)
+    source: Literal["transcript", "prescription_image"] = "transcript"
+
+
+class FollowUp(BaseModel):
+    when: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class Soap(BaseModel):
+    subjective: str = ""
+    objective: str = ""
+    assessment: str = ""
+    plan: str = ""
+
+
+class Entities(BaseModel):
+    chief_complaint: Optional[str] = None
+    symptoms: list[Symptom] = Field(default_factory=list)
+    vitals: list[Vital] = Field(default_factory=list)
+    diagnoses: list[Diagnosis] = Field(default_factory=list)
+    medications: list[Medication] = Field(default_factory=list)
+    follow_up: Optional[FollowUp] = None
+
+
+class ClinicalNote(BaseModel):
+    soap: Soap
+    entities: Entities
+    med_instructions: list[MedInstruction] = Field(default_factory=list)
+
+
+# ---- API shapes ----
+
+class SegmentOut(BaseModel):
+    id: int
+    idx: int
+    start_s: float
+    end_s: float
+    speaker: Optional[str] = None
+    text: str
+    edited: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class SegmentEdit(BaseModel):
+    id: int
+    speaker: Optional[str] = None
+    text: Optional[str] = None
+
+
+class EncounterOut(BaseModel):
+    id: int
+    created_at: str
+    patient_label: Optional[str] = None
+    source: str
+    language: Optional[str] = None
+    duration_s: Optional[float] = None
+    status: str
+    asr_ms: Optional[int] = None
+    llm_ms: Optional[int] = None
+    asr_model: Optional[str] = None
+    llm_model: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class EncounterDetail(EncounterOut):
+    segments: list[SegmentOut] = Field(default_factory=list)
+    note: Optional[ClinicalNote] = None
+    reviewed: int = 0
+    fhir_bundle: Optional[dict] = None
+    fhir_valid: Optional[bool] = None

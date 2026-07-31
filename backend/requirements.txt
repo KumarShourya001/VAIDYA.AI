@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-multipart
+sqlalchemy
+pydantic
+requests
+faster-whisper
+fhir.resources
+
+# CUDA runtime for faster-whisper on GPU; without these ctranslate2 fails at
+# encode time with "cublas64_12.dll is not found"
+nvidia-cublas-cu12
+nvidia-cudnn-cu12>=9
