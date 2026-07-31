@@ -3,9 +3,10 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from . import fhir_map
 from .db import get_db
-from .models_db import Encounter, Segment
-from .schemas import EncounterOut, EncounterDetail, SegmentOut, SegmentEdit
+from .models_db import Encounter, now
+from .schemas import ClinicalNote, EncounterOut, EncounterDetail, SegmentOut, SegmentEdit
 
 router = APIRouter(prefix="/api/encounters", tags=["encounters"])
 
@@ -16,7 +17,9 @@ def list_encounters(db: Session = Depends(get_db)):
 
 
 def build_detail(enc):
-    detail = EncounterDetail.model_validate(enc)
+    # built from EncounterOut, not from the ORM row: the row's "note" is a Note
+    # record, while the schema's "note" is the parsed ClinicalNote
+    detail = EncounterDetail(**EncounterOut.model_validate(enc).model_dump())
     detail.segments = [SegmentOut.model_validate(s) for s in enc.segments]
 
     if enc.note:
@@ -35,6 +38,27 @@ def get_encounter(encounter_id: int, db: Session = Depends(get_db)):
     enc = db.get(Encounter, encounter_id)
     if not enc:
         raise HTTPException(404, "encounter not found")
+    return build_detail(enc)
+
+
+@router.put("/{encounter_id}/note", response_model=EncounterDetail)
+def save_note(encounter_id: int, note: ClinicalNote, db: Session = Depends(get_db)):
+    enc = db.get(Encounter, encounter_id)
+    if not enc:
+        raise HTTPException(404, "encounter not found")
+    if not enc.note:
+        raise HTTPException(400, "generate a note before saving edits")
+
+    # the raw draft is never overwritten, so the model's original stays auditable
+    enc.note.final_note_json = note.model_dump_json()
+    enc.note.reviewed = 1
+    enc.note.updated_at = now()
+    enc.status = "reviewed"
+
+    fhir_map.rebuild_bundle(db, enc)
+
+    db.commit()
+    db.refresh(enc)
     return build_detail(enc)
 
 

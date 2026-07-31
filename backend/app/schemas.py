@@ -41,6 +41,19 @@ class MedInstruction(BaseModel):
     source: Literal["transcript", "prescription_image"] = "transcript"
 
 
+# the model writes these; med_name is matched back and source is set in code
+class MedInstructionDraft(BaseModel):
+    med_name: str
+    plain_text: str
+    timing: Optional[str] = None
+    total_days: Optional[str] = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class MedInstructionList(BaseModel):
+    instructions: list[MedInstructionDraft] = Field(default_factory=list)
+
+
 class FollowUp(BaseModel):
     when: Optional[str] = None
     reason: Optional[str] = None
@@ -62,9 +75,13 @@ class Entities(BaseModel):
     follow_up: Optional[FollowUp] = None
 
 
-class ClinicalNote(BaseModel):
+# what the LLM is asked for; med_instructions come from a second pass
+class NoteDraft(BaseModel):
     soap: Soap
     entities: Entities
+
+
+class ClinicalNote(NoteDraft):
     med_instructions: list[MedInstruction] = Field(default_factory=list)
 
 

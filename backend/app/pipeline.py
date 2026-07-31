@@ -4,10 +4,10 @@ import uuid
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from . import asr, audio, config, speakers
+from . import asr, audio, config, fhir_map, llm, speakers
 from .db import get_db
 from .encounters import build_detail
-from .models_db import Encounter, Segment
+from .models_db import Encounter, Note, Segment, now
 from .schemas import EncounterDetail, EncounterOut
 
 router = APIRouter(prefix="/api", tags=["pipeline"])
@@ -92,6 +92,40 @@ def transcribe_encounter(encounter_id: int, db: Session = Depends(get_db)):
     enc.asr_ms = asr_ms
     enc.asr_model = f"{config.ASR_MODEL} ({asr.device()})"
     enc.status = "transcribed"
+
+    db.commit()
+    db.refresh(enc)
+    return build_detail(enc)
+
+
+@router.post("/encounters/{encounter_id}/note", response_model=EncounterDetail)
+def generate_note(encounter_id: int, db: Session = Depends(get_db)):
+    enc = db.get(Encounter, encounter_id)
+    if not enc:
+        raise HTTPException(404, "encounter not found")
+    if not enc.segments:
+        raise HTTPException(400, "transcribe the encounter first")
+
+    transcript_text = llm.transcript_from_segments(enc.segments)
+    try:
+        note, llm_ms = llm.generate_note(transcript_text)
+    except llm.LLMError as e:
+        raise HTTPException(503, str(e))
+
+    raw_json = note.model_dump_json()
+    if enc.note:
+        # regenerating discards the old draft but keeps any doctor edits visible
+        enc.note.raw_note_json = raw_json
+        enc.note.updated_at = now()
+    else:
+        db.add(Note(encounter_id=enc.id, raw_note_json=raw_json))
+
+    enc.llm_ms = llm_ms
+    enc.llm_model = config.LLM_MODEL
+    enc.status = "noted"
+
+    db.flush()  # the bundle builder reads enc.note, so the note must exist first
+    fhir_map.rebuild_bundle(db, enc)
 
     db.commit()
     db.refresh(enc)

@@ -21,6 +21,16 @@ export const loadSample = () => req('/api/audio/sample', { method: 'POST' })
 export const transcribeEncounter = (id) =>
   req(`/api/encounters/${id}/transcribe`, { method: 'POST' })
 
+export const generateNote = (id) =>
+  req(`/api/encounters/${id}/note`, { method: 'POST' })
+
+export const saveNote = (id, note) =>
+  req(`/api/encounters/${id}/note`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(note),
+  })
+
 export const editSegments = (id, edits) =>
   req(`/api/encounters/${id}/segments`, {
     method: 'PATCH',
