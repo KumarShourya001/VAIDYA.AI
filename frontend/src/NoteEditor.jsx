@@ -154,7 +154,7 @@ export default function NoteEditor({ note, reviewed, busy, onSave }) {
         <ListEditor
           title="Patient medication instructions"
           items={draft.med_instructions}
-          blank={{ med_name: '', plain_text: '', timing: null, total_days: null, warnings: [], source: 'transcript' }}
+          blank={{ med_name: '', plain_text: '', timing: null, total_days: null, warnings: [] }}
           fields={[
             { key: 'med_name', label: 'Medicine' },
             { key: 'plain_text', label: 'How to take it' },

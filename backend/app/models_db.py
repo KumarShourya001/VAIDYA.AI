@@ -166,14 +166,3 @@ class FhirBundle(Base):
     created_at = Column(String, nullable=False, default=now)
 
     encounter = relationship("Encounter", back_populates="bundle")
-
-
-class Prescription(Base):
-    __tablename__ = "prescriptions"
-
-    id = Column(Integer, primary_key=True)
-    encounter_id = Column(Integer, ForeignKey("encounters.id", ondelete="CASCADE"))
-    image_path = Column(String, nullable=False)
-    ocr_text = Column(Text)
-    meds_json = Column(Text)
-    created_at = Column(String, nullable=False, default=now)

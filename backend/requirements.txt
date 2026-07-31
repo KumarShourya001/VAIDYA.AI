@@ -1,13 +1,24 @@
+# web
 fastapi
 uvicorn[standard]
 python-multipart
-sqlalchemy
-pydantic
-requests
-faster-whisper
-fhir.resources
 
-# CUDA runtime for faster-whisper on GPU; without these ctranslate2 fails at
-# encode time with "cublas64_12.dll is not found"
+# storage
+sqlalchemy
+
+# validation, shared by the API and the LLM output contract
+pydantic
+
+# ollama is called over plain HTTP
+requests
+
+# local speech recognition
+faster-whisper
+
+# CUDA runtime for faster-whisper on GPU. Without these ctranslate2 fails at
+# encode time with "cublas64_12.dll is not found" and it falls back to CPU.
 nvidia-cublas-cu12
 nvidia-cudnn-cu12>=9
+
+# FHIR resource construction and validation (8.x ships R4B)
+fhir.resources

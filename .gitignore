@@ -1,10 +1,25 @@
+# python
 __pycache__/
-*.pyc
+*.py[cod]
 .venv/
+venv/
 
+# node
 node_modules/
 dist/
+.vite/
 
-# per-run data; the bundled sample under data/samples/ is committed on purpose
+# editors
+.vscode/
+.idea/
+.DS_Store
+
+# per-run patient data: recordings and the database never belong in git.
+# the bundled sample under backend/data/samples/ is committed on purpose.
 backend/data/audio/
-backend/data/vaidya.db
+backend/data/*.db
+backend/data/*.db-journal
+
+# local overrides
+.env
+.env.local

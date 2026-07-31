@@ -38,7 +38,6 @@ class MedInstruction(BaseModel):
     timing: Optional[str] = None
     total_days: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)
-    source: Literal["transcript", "prescription_image"] = "transcript"
 
 
 # the model writes these; med_name is matched back and source is set in code

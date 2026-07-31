@@ -78,7 +78,6 @@ def _build_instructions(medications, model):
             timing=draft.timing,
             total_days=draft.total_days,
             warnings=draft.warnings,
-            source="transcript",
         ))
 
     return out, elapsed_ms
@@ -88,7 +87,6 @@ def _fallback(med):
     return MedInstruction(
         med_name=med.name,
         plain_text="Instructions could not be generated. Follow the plan in the note above.",
-        source="transcript",
     )
 
 
