@@ -8,6 +8,12 @@ It also keeps a medical portfolio for each patient: conditions, allergies,
 medications, doctors seen and appointments, behind a sign-in, with an emergency
 card that a responder can read without one.
 
+
+## Live demo
+
+Deployed in demo mode (replays a bundled sample consultation, no live inference):
+https://vaidya-web.onrender.com
+
 ## Requirements
 
 - Python 3.10+, Node 20+
