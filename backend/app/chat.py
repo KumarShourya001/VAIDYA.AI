@@ -41,7 +41,7 @@ class ChatReply(BaseModel):
 
 @router.post("/chat", response_model=ChatReply)
 def ask(body: ChatRequest, patient: Patient = Depends(auth.current_patient)):
-    if config.DEMO_MODE:
+    if config.DEMO_MODE and not config.GROQ_API_KEY:
         return ChatReply(reply=DEMO_REPLY, llm_ms=0)
 
     history = [t.model_dump() for t in body.history[-MAX_HISTORY:]]
