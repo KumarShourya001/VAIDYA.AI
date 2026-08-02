@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import audio, config
-from .db import init_db
+from .db import engine, init_db
 from . import chat, encounters, pipeline, portfolio
 
 app = FastAPI(title="Vaidya.AI")
@@ -36,6 +36,8 @@ def health():
         "ok": True,
         "offline": not config.DEMO_MODE,  # local runs never talk to the internet
         "demo_mode": config.DEMO_MODE,
+        # dialect only, never the connection string: this is a public endpoint
+        "database": engine.dialect.name,
         "ffmpeg": audio.have_ffmpeg(),
         "ollama": ollama_up,
         "asr_model": config.ASR_MODEL,

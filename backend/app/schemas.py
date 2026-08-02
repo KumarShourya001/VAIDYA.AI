@@ -149,6 +149,17 @@ class AllergyIn(BaseModel):
     severity: Optional[Literal["mild", "moderate", "severe"]] = None
 
 
+class AppointmentIn(BaseModel):
+    scheduled_for: str = Field(min_length=1)
+    reason: Optional[str] = None
+    status: Literal["scheduled", "completed", "cancelled"] = "scheduled"
+    # the doctor is matched by name and created if new, so one call is enough
+    doctor_name: Optional[str] = None
+    doctor_specialty: Optional[str] = None
+    doctor_hospital: Optional[str] = None
+    doctor_phone: Optional[str] = None
+
+
 class ConditionOut(BaseModel):
     id: int
     name: str
