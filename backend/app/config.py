@@ -20,6 +20,7 @@ ASR_COMPUTE = os.getenv("VAIDYA_ASR_COMPUTE", "float16")
 
 OLLAMA_URL = os.getenv("VAIDYA_OLLAMA_URL", "http://127.0.0.1:11434")
 LLM_MODEL = os.getenv("VAIDYA_LLM_MODEL", "llama3.2:3b")
+GROQ_API_KEY = os.getenv("VAIDYA_GROQ_API_KEY", "")
 LLM_RETRIES = 2
 
 # On a host with no GPU and no Ollama the bundled sample is served from

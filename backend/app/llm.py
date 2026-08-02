@@ -26,6 +26,9 @@ def generate_note(transcript_text, model=None):
 
 
 def free_chat(system_prompt, history, model=None):
+    if config.DEMO_MODE and config.GROQ_API_KEY:
+        return _groq_chat(system_prompt, history)
+
     # no JSON schema here: the reply is prose for a person to read
     model = model or config.LLM_MODEL
     turns = [{"role": "system", "content": system_prompt}] + history
@@ -43,6 +46,24 @@ def free_chat(system_prompt, history, model=None):
         raise LLMError(f"cannot reach Ollama at {config.OLLAMA_URL}: {e}")
 
     reply = response.json()["message"]["content"].strip()
+    return reply, int((time.perf_counter() - start) * 1000)
+
+
+def _groq_chat(system_prompt, history):
+    turns = [{"role": "system", "content": system_prompt}] + history
+    start = time.perf_counter()
+    try:
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {config.GROQ_API_KEY}"},
+            json={"model": "llama-3.1-8b-instant", "messages": turns, "temperature": 0.3},
+            timeout=60,
+        )
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise LLMError(f"cannot reach Groq: {e}")
+
+    reply = response.json()["choices"][0]["message"]["content"].strip()
     return reply, int((time.perf_counter() - start) * 1000)
 
 
