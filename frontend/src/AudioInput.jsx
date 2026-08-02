@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { loadSample, uploadAudio } from './api'
 
-export default function AudioInput({ onEncounter, busy, setBusy }) {
+export default function AudioInput({ onEncounter, busy, setBusy, demoMode }) {
   const [recording, setRecording] = useState(false)
   const [error, setError] = useState(null)
 
@@ -56,9 +56,21 @@ export default function AudioInput({ onEncounter, busy, setBusy }) {
     <div className="rounded-lg border border-gray-200 bg-white p-5">
       <h2 className="mb-4 text-base font-semibold text-gray-900">New consultation</h2>
 
+      {demoMode && (
+        <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          This hosted demo has no speech model attached, so it can only replay the bundled
+          consultation. Recording and upload work when you run Vaidya locally.
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-3">
         {!recording ? (
-          <button className={`${btn} bg-gray-900 text-white`} onClick={startRecording} disabled={busy}>
+          <button
+            className={`${btn} bg-gray-900 text-white`}
+            onClick={startRecording}
+            disabled={busy || demoMode}
+            title={demoMode ? 'Not available in the hosted demo' : undefined}
+          >
             Start recording
           </button>
         ) : (
@@ -67,13 +79,17 @@ export default function AudioInput({ onEncounter, busy, setBusy }) {
           </button>
         )}
 
-        <label className={`${btn} cursor-pointer border border-gray-300 bg-white text-gray-800`}>
+        <label
+          className={`${btn} border border-gray-300 bg-white text-gray-800 ${
+            demoMode ? 'pointer-events-none opacity-40' : 'cursor-pointer'
+          }`}
+        >
           Upload .wav / .mp3
           <input
             type="file"
             accept=".wav,.mp3,audio/*"
             className="hidden"
-            disabled={busy}
+            disabled={busy || demoMode}
             onChange={(e) => {
               const f = e.target.files?.[0]
               if (f) send(() => uploadAudio(f, 'upload', null))

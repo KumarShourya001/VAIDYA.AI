@@ -172,6 +172,7 @@ export default function App() {
                 }}
                 busy={busy}
                 setBusy={setBusy}
+                demoMode={health?.demo_mode}
               />
 
               {error && (
