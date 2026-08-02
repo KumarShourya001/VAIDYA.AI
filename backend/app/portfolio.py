@@ -5,10 +5,10 @@ from sqlalchemy.orm import Session
 
 from . import auth
 from .db import get_db
-from .models_db import Allergy, MedicalCondition, Patient
+from .models_db import Allergy, Appointment, Doctor, MedicalCondition, Patient
 from .schemas import (
-    AllergyIn, AllergyOut, AppointmentOut, ConditionIn, ConditionOut, DoctorOut,
-    EmergencyCard, EncounterOut, LoginRequest, LoginResponse, PatientOut,
+    AllergyIn, AllergyOut, AppointmentIn, AppointmentOut, ConditionIn, ConditionOut,
+    DoctorOut, EmergencyCard, EncounterOut, LoginRequest, LoginResponse, PatientOut,
     Portfolio, ProfileIn, RegisterRequest,
 )
 
@@ -113,6 +113,45 @@ def save_allergies(body: list[AllergyIn], patient: Patient = Depends(auth.curren
     db.commit()
     db.refresh(patient)
     return [AllergyOut.model_validate(a) for a in patient.allergies]
+
+
+@router.put("/portfolio/appointments", response_model=list[AppointmentOut])
+def save_appointments(body: list[AppointmentIn],
+                      patient: Patient = Depends(auth.current_patient),
+                      db: Session = Depends(get_db)):
+    for existing in patient.appointments:
+        db.delete(existing)
+    db.flush()
+
+    for item in body:
+        db.add(Appointment(
+            patient_id=patient.id,
+            doctor_id=_find_or_add_doctor(db, item),
+            scheduled_for=item.scheduled_for,
+            reason=item.reason,
+            status=item.status,
+        ))
+
+    db.commit()
+    db.refresh(patient)
+    return [AppointmentOut.model_validate(a) for a in patient.appointments]
+
+
+def _find_or_add_doctor(db, item):
+    if not item.doctor_name:
+        return None
+
+    doctor = db.query(Doctor).filter(Doctor.name == item.doctor_name).first()
+    if not doctor:
+        doctor = Doctor(
+            name=item.doctor_name,
+            specialty=item.doctor_specialty,
+            hospital=item.doctor_hospital,
+            phone=item.doctor_phone,
+        )
+        db.add(doctor)
+        db.flush()
+    return doctor.id
 
 
 @router.get("/emergency/{patient_id}", response_model=EmergencyCard)

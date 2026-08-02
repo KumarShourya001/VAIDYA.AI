@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
-import { loadSample, uploadAudio } from './api'
+import { importBrowserTranscript, loadSample, uploadAudio } from './api'
 
-export default function AudioInput({ onEncounter, busy, setBusy }) {
+export default function AudioInput({ onEncounter, busy, setBusy, demoMode }) {
   const [recording, setRecording] = useState(false)
   const [error, setError] = useState(null)
+  const [progress, setProgress] = useState(null)
 
   // MediaRecorder and its chunks live in refs, not state: changing them must not re-render
   const recorderRef = useRef(null)
@@ -20,8 +21,25 @@ export default function AudioInput({ onEncounter, busy, setBusy }) {
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop())
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
-        const file = new File([blob], 'recording.webm', { type: recorder.mimeType })
-        await send(() => uploadAudio(file, 'mic', null))
+
+        if (demoMode) {
+          // no model on the host, so transcribe here and send only the text
+          await send(async () => {
+            setProgress({ percent: 0, label: 'preparing the speech model' })
+            // imported here, not at the top: transformers.js is large and most
+            // visitors never record anything
+            const { transcribe } = await import('./browserAsr')
+            const transcript = await transcribe(blob, (p) =>
+              setProgress({ percent: p.percent, label: 'downloading the speech model' }),
+            )
+            setProgress({ percent: 100, label: 'transcribing' })
+            return importBrowserTranscript(transcript)
+          })
+          setProgress(null)
+        } else {
+          const file = new File([blob], 'recording.webm', { type: recorder.mimeType })
+          await send(() => uploadAudio(file, 'mic', null))
+        }
       }
 
       recorder.start()
@@ -56,6 +74,14 @@ export default function AudioInput({ onEncounter, busy, setBusy }) {
     <div className="rounded-lg border border-gray-200 bg-white p-5">
       <h2 className="mb-4 text-base font-semibold text-gray-900">New consultation</h2>
 
+      {demoMode && (
+        <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Recording is transcribed by a speech model running inside your own browser, so the
+          audio never leaves your device. The model downloads once, about 40 MB. Turning the
+          transcript into a clinical note needs the full local install.
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-3">
         {!recording ? (
           <button className={`${btn} bg-gray-900 text-white`} onClick={startRecording} disabled={busy}>
@@ -67,13 +93,17 @@ export default function AudioInput({ onEncounter, busy, setBusy }) {
           </button>
         )}
 
-        <label className={`${btn} cursor-pointer border border-gray-300 bg-white text-gray-800`}>
+        <label
+          className={`${btn} border border-gray-300 bg-white text-gray-800 ${
+            demoMode ? 'pointer-events-none opacity-40' : 'cursor-pointer'
+          }`}
+        >
           Upload .wav / .mp3
           <input
             type="file"
             accept=".wav,.mp3,audio/*"
             className="hidden"
-            disabled={busy}
+            disabled={busy || demoMode}
             onChange={(e) => {
               const f = e.target.files?.[0]
               if (f) send(() => uploadAudio(f, 'upload', null))
@@ -92,6 +122,19 @@ export default function AudioInput({ onEncounter, busy, setBusy }) {
       </div>
 
       {recording && <p className="mt-3 text-sm text-red-600">Recording…</p>}
+
+      {progress && (
+        <div className="mt-3">
+          <p className="mb-1 text-sm text-gray-700">
+            {progress.label}
+            {progress.percent > 0 && progress.percent < 100 ? ` — ${progress.percent}%` : '…'}
+          </p>
+          <div className="h-1.5 w-full overflow-hidden rounded bg-gray-200">
+            <div className="h-full bg-gray-900 transition-all" style={{ width: `${progress.percent}%` }} />
+          </div>
+        </div>
+      )}
+
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
     </div>
   )

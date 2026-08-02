@@ -173,6 +173,26 @@ filesystem, not into the database. On a host without a persistent disk they
 disappear when the container restarts. In demo mode nothing is uploaded, so it
 does not arise; if you want real uploads in the cloud, they need object storage.
 
+### Speech in the browser
+
+The hosted site has no speech model, but recording still works there: whisper
+tiny runs inside the visitor's browser through transformers.js, and only the
+resulting text is sent to the server. The audio itself never leaves the device,
+so the privacy claim holds on the web as well as on a laptop.
+
+The model is about 150 MB at fp32 and downloads once, then the browser caches
+it. Int8 builds are smaller but the whisper decoder ones currently fail to load
+under onnxruntime-web, which is why full precision is pinned in `browserAsr.js`.
+
+Measured on a desktop browser: 16 seconds of audio transcribed in 5.8 seconds,
+roughly 3x realtime, with usable timestamps.
+
+Locally the server does the transcription instead, because whisper `small` on
+the GPU is both faster and more accurate than tiny in a browser.
+
+A transcript made this way stops at the transcript: turning it into a clinical
+note still needs the language model, so that step only works on a full install.
+
 ### Demo mode
 
 A cloud host has no GPU and no Ollama, so `VAIDYA_DEMO_MODE=true` makes the

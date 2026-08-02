@@ -15,12 +15,12 @@ def assign(segments, wav_path):
     try:
         signal, rate = _read_wav(wav_path)
     except Exception:
-        return _alternate(segments)
+        return alternate(segments)
 
     pitches = [_pitch_of(signal, rate, s["start_s"], s["end_s"]) for s in segments]
     voiced = [p for p in pitches if p is not None]
     if len(voiced) < 2:
-        return _alternate(segments)
+        return alternate(segments)
 
     boundary = _split_point(voiced)
     low_is_doctor = voiced[0] < boundary
@@ -82,8 +82,8 @@ def _split_point(values):
     return (c0 + c1) / 2
 
 
-def _alternate(segments):
-    # fallback when the audio is unreadable: flip speaker on every long pause
+def alternate(segments):
+    # used when there is no audio to analyse: flip speaker on every long pause
     speaker = "doctor"
     prev_end = None
     for seg in segments:

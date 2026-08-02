@@ -149,6 +149,17 @@ class AllergyIn(BaseModel):
     severity: Optional[Literal["mild", "moderate", "severe"]] = None
 
 
+class AppointmentIn(BaseModel):
+    scheduled_for: str = Field(min_length=1)
+    reason: Optional[str] = None
+    status: Literal["scheduled", "completed", "cancelled"] = "scheduled"
+    # the doctor is matched by name and created if new, so one call is enough
+    doctor_name: Optional[str] = None
+    doctor_specialty: Optional[str] = None
+    doctor_hospital: Optional[str] = None
+    doctor_phone: Optional[str] = None
+
+
 class ConditionOut(BaseModel):
     id: int
     name: str
@@ -224,6 +235,22 @@ class SegmentOut(BaseModel):
     edited: int = 0
 
     model_config = {"from_attributes": True}
+
+
+# a transcript produced in the browser: the audio itself never reaches the server
+class SegmentIn(BaseModel):
+    start_s: float
+    end_s: float
+    text: str = Field(min_length=1)
+
+
+class BrowserTranscript(BaseModel):
+    segments: list[SegmentIn] = Field(min_length=1)
+    language: Optional[str] = None
+    duration_s: Optional[float] = None
+    asr_ms: Optional[int] = None
+    asr_model: str = "whisper (browser)"
+    patient_label: Optional[str] = None
 
 
 class SegmentEdit(BaseModel):
