@@ -8,7 +8,8 @@ const SUGGESTIONS = [
   'What happens at my next appointment?',
 ]
 
-export default function Chat({ demoMode }) {
+export default function Chat({ demoMode, backend }) {
+  const inBrowser = backend === 'browser'
   const [history, setHistory] = useState([])
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -25,7 +26,7 @@ export default function Chat({ demoMode }) {
     setHistory(next)
 
     try {
-      const reply = demoMode ? await askInBrowser(next) : await sendChat(text, history)
+      const reply = inBrowser ? await askInBrowser(next) : await sendChat(text, history)
       setHistory([...next, { role: 'assistant', content: reply.reply }])
     } catch (e) {
       setError(String(e.message))
@@ -65,7 +66,7 @@ export default function Chat({ demoMode }) {
         </div>
 
         <div className="flex min-h-[280px] flex-col gap-3 px-5 py-4">
-          {demoMode && (
+          {inBrowser && (
             <p className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
               The model runs on your own graphics card through the browser, so nothing you type
               leaves this device. It downloads once, about 1 GB, and needs Chrome or Edge. On your
@@ -78,6 +79,14 @@ export default function Chat({ demoMode }) {
               >
                 github.com/KumarShourya001/VAIDYA.AI
               </a>
+            </p>
+          )}
+
+          {backend === 'groq' && (
+            <p className="rounded bg-red-50 px-3 py-2 text-xs text-red-900">
+              On this hosted demo your question and your medical record are sent to Groq, an
+              outside company, to be answered. Nothing is stored there, but the data does leave
+              this server. Run Vaidya on your own machine to keep everything local.
             </p>
           )}
 

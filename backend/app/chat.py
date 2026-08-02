@@ -61,7 +61,9 @@ def chat_context(patient: Patient = Depends(auth.current_patient)):
 
 @router.post("/chat", response_model=ChatReply)
 def ask(body: ChatRequest, patient: Patient = Depends(auth.current_patient)):
-    if config.DEMO_MODE and not config.GROQ_API_KEY:
+    # with a Groq key set, the record below is sent to a third party. config
+    # reports that as chat_backend so the interface can say so on screen.
+    if config.chat_backend() == "browser":
         return ChatReply(reply=DEMO_REPLY, llm_ms=0)
 
     history = [t.model_dump() for t in body.history[-MAX_HISTORY:]]

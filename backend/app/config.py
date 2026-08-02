@@ -28,6 +28,17 @@ LLM_RETRIES = 2
 # the sample is refused with an explanation rather than left to hang.
 DEMO_MODE = os.getenv("VAIDYA_DEMO_MODE", "").lower() in ("1", "true", "yes")
 
+def chat_backend():
+    """Which model actually answers the assistant, so the interface can say so.
+
+    groq means the patient's record is sent to a third party; browser means a
+    model on the visitor's own GPU; ollama means this machine.
+    """
+    if not DEMO_MODE:
+        return "ollama"
+    return "groq" if GROQ_API_KEY else "browser"
+
+
 FRONTEND_ORIGINS = [
     o.strip()
     for o in os.getenv("VAIDYA_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")

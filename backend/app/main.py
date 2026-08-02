@@ -36,6 +36,7 @@ def health():
         "ok": True,
         "offline": not config.DEMO_MODE,  # local runs never talk to the internet
         "demo_mode": config.DEMO_MODE,
+        "chat_backend": config.chat_backend(),
         # dialect only, never the connection string: this is a public endpoint
         "database": engine.dialect.name,
         "ffmpeg": audio.have_ffmpeg(),
