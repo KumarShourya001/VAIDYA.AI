@@ -237,6 +237,22 @@ class SegmentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# a transcript produced in the browser: the audio itself never reaches the server
+class SegmentIn(BaseModel):
+    start_s: float
+    end_s: float
+    text: str = Field(min_length=1)
+
+
+class BrowserTranscript(BaseModel):
+    segments: list[SegmentIn] = Field(min_length=1)
+    language: Optional[str] = None
+    duration_s: Optional[float] = None
+    asr_ms: Optional[int] = None
+    asr_model: str = "whisper (browser)"
+    patient_label: Optional[str] = None
+
+
 class SegmentEdit(BaseModel):
     id: int
     speaker: Optional[str] = None

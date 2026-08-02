@@ -55,6 +55,9 @@ export const deleteEncounter = (id) => req(`/api/encounters/${id}`, { method: 'D
 
 export const loadSample = () => req('/api/audio/sample', { method: 'POST' })
 
+export const importBrowserTranscript = (transcript) =>
+  req('/api/audio/browser', json('POST', transcript))
+
 export const transcribeEncounter = (id) =>
   req(`/api/encounters/${id}/transcribe`, { method: 'POST' })
 

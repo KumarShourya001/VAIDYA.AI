@@ -47,7 +47,15 @@ export default function Chat({ demoMode }) {
           {demoMode && (
             <p className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
               The assistant needs a language model running on the machine, which this hosted
-              demo does not have. Run Vaidya locally to try it.
+              demo does not have. Run it on your own machine to try it:{' '}
+              <a
+                className="font-medium underline"
+                href="https://github.com/KumarShourya001/VAIDYA.AI"
+                target="_blank"
+                rel="noreferrer"
+              >
+                github.com/KumarShourya001/VAIDYA.AI
+              </a>
             </p>
           )}
 

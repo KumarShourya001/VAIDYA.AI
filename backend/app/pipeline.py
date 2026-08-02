@@ -9,7 +9,7 @@ from . import asr, audio, auth, config, fhir_map, llm, speakers
 from .db import get_db
 from .encounters import build_detail, owned
 from .models_db import Encounter, Note, Segment, now
-from .schemas import EncounterDetail, EncounterOut
+from .schemas import BrowserTranscript, EncounterDetail, EncounterOut
 
 router = APIRouter(prefix="/api", tags=["pipeline"])
 
@@ -61,6 +61,43 @@ def load_sample(patient=Depends(auth.current_patient), db: Session = Depends(get
     shutil.copyfile(SAMPLE_WAV, wav_path)
 
     return _create_encounter(db, "sample", wav_path, "Sample Patient", patient)
+
+
+@router.post("/audio/browser", response_model=EncounterDetail)
+def import_browser_transcript(body: BrowserTranscript,
+                              patient=Depends(auth.current_patient),
+                              db: Session = Depends(get_db)):
+    # the recording was transcribed on the visitor's machine and only the text was
+    # sent, so there is no audio to store and no model needed on this server
+    enc = Encounter(
+        source="browser",
+        patient_id=patient.id,
+        patient_label=patient.full_name,
+        language=body.language,
+        duration_s=body.duration_s or (body.segments[-1].end_s if body.segments else None),
+        asr_ms=body.asr_ms,
+        asr_model=body.asr_model,
+        status="transcribed",
+    )
+    db.add(enc)
+    db.flush()
+
+    segs = [{"start_s": s.start_s, "end_s": s.end_s, "text": s.text} for s in body.segments]
+    speakers.alternate(segs)  # no audio here, so pitch clustering is not available
+
+    for i, s in enumerate(segs):
+        db.add(Segment(
+            encounter_id=enc.id,
+            idx=i,
+            start_s=s["start_s"],
+            end_s=s["end_s"],
+            text=s["text"],
+            speaker=s["speaker"],
+        ))
+
+    db.commit()
+    db.refresh(enc)
+    return build_detail(enc)
 
 
 @router.post("/encounters/{encounter_id}/transcribe", response_model=EncounterDetail)

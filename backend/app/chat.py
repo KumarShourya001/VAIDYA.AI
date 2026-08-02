@@ -17,8 +17,10 @@ DEMO_REPLY = (
     "the clinician's own machine, and this server has no model attached to it.\n\n"
     "Everything else you can see is real: your record, the consultation note and the "
     "emergency card are all live data.\n\n"
-    "To try the assistant, run Vaidya locally. There it answers only from your own "
-    "record, and it will not recommend or change any medicine."
+    "To try the assistant, run Vaidya on your own machine:\n"
+    "https://github.com/KumarShourya001/VAIDYA.AI\n\n"
+    "There it answers only from your own record, and it will not recommend or change "
+    "any medicine."
 )
 
 
