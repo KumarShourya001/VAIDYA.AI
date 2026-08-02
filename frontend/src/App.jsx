@@ -112,7 +112,9 @@ export default function App() {
 
   // locally the server has Ollama; on the hosted demo the model runs in the browser
   async function handleGenerateNote(model) {
-    if (!health?.demo_mode) {
+    // the server handles it unless the hosted demo has no model of its own,
+    // in which case it runs on the visitor's GPU
+    if (health?.chat_backend !== 'browser') {
       return run(() => generateNote(current.id, model))
     }
 
@@ -220,6 +222,7 @@ export default function App() {
                     onTranscribe={() => run(() => transcribeEncounter(current.id))}
                     onGenerateNote={handleGenerateNote}
                     demoMode={health?.demo_mode}
+                    backend={health?.chat_backend}
                     progress={llmProgress}
                   />
                   <TranscriptView

@@ -28,6 +28,12 @@ LLM_RETRIES = 2
 # the sample is refused with an explanation rather than left to hang.
 DEMO_MODE = os.getenv("VAIDYA_DEMO_MODE", "").lower() in ("1", "true", "yes")
 
+def use_groq():
+    # only ever in demo mode: a local install must not send records outside,
+    # whatever key happens to be lying around in the environment
+    return DEMO_MODE and bool(GROQ_API_KEY)
+
+
 def chat_backend():
     """Which model actually answers the assistant, so the interface can say so.
 
@@ -37,6 +43,10 @@ def chat_backend():
     if not DEMO_MODE:
         return "ollama"
     return "groq" if GROQ_API_KEY else "browser"
+
+
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = os.getenv("VAIDYA_GROQ_MODEL", "llama-3.1-8b-instant")
 
 
 FRONTEND_ORIGINS = [

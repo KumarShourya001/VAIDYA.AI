@@ -26,7 +26,7 @@ def generate_note(transcript_text, model=None):
 
 
 def free_chat(system_prompt, history, model=None):
-    if config.DEMO_MODE and config.GROQ_API_KEY:
+    if config.use_groq():
         return _groq_chat(system_prompt, history)
 
     # no JSON schema here: the reply is prose for a person to read
@@ -51,20 +51,28 @@ def free_chat(system_prompt, history, model=None):
 
 def _groq_chat(system_prompt, history):
     turns = [{"role": "system", "content": system_prompt}] + history
+    reply, elapsed_ms = _groq(turns, temperature=0.3)
+    return reply.strip(), elapsed_ms
+
+
+def _groq(messages, temperature=0.0, json_only=False):
+    body = {"model": config.GROQ_MODEL, "messages": messages, "temperature": temperature}
+    if json_only:
+        body["response_format"] = {"type": "json_object"}
+
     start = time.perf_counter()
     try:
         response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
+            config.GROQ_URL,
             headers={"Authorization": f"Bearer {config.GROQ_API_KEY}"},
-            json={"model": "llama-3.1-8b-instant", "messages": turns, "temperature": 0.3},
+            json=body,
             timeout=60,
         )
         response.raise_for_status()
     except requests.RequestException as e:
         raise LLMError(f"cannot reach Groq: {e}")
 
-    reply = response.json()["choices"][0]["message"]["content"].strip()
-    return reply, int((time.perf_counter() - start) * 1000)
+    return response.json()["choices"][0]["message"]["content"], int((time.perf_counter() - start) * 1000)
 
 
 def transcript_from_segments(segments):
@@ -133,6 +141,11 @@ def _ask_until_valid(messages, model_cls, model):
 
 
 def _chat(messages, schema, model):
+    # Groq has no schema-guided decoding, so json mode plus the retry loop above
+    # does the same job of getting a parseable object back
+    if config.use_groq():
+        return _groq(messages, temperature=0.0, json_only=True)
+
     start = time.perf_counter()
     try:
         response = requests.post(

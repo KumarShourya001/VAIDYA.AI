@@ -156,10 +156,10 @@ def generate_note(encounter_id: int, model: str = None,
     if not enc.segments:
         raise HTTPException(400, "transcribe the encounter first")
 
-    if config.DEMO_MODE:
+    if config.DEMO_MODE and not config.use_groq():
         raw_json, llm_ms, model = _replay_note(enc)
     else:
-        model = model or config.LLM_MODEL
+        model = config.GROQ_MODEL if config.use_groq() else (model or config.LLM_MODEL)
         transcript_text = llm.transcript_from_segments(enc.segments)
         try:
             note, llm_ms = llm.generate_note(transcript_text, model)

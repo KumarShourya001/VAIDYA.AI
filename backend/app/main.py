@@ -43,5 +43,6 @@ def health():
         "ollama": ollama_up,
         "asr_model": config.ASR_MODEL,
         "asr_device": config.ASR_DEVICE,
-        "llm_model": config.LLM_MODEL,
+        # the model that will actually answer, not the one configured for local use
+        "llm_model": config.GROQ_MODEL if config.use_groq() else config.LLM_MODEL,
     }

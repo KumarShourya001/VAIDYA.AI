@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 
 const MODELS = ['llama3.2:3b', 'qwen2.5:7b']
 
-export default function EncounterPanel({ encounter, busy, onTranscribe, onGenerateNote, demoMode, progress }) {
+export default function EncounterPanel({ encounter, busy, onTranscribe, onGenerateNote, demoMode, backend, progress }) {
   const [model, setModel] = useState(MODELS[0])
 
   const rows = [
@@ -58,10 +58,17 @@ export default function EncounterPanel({ encounter, busy, onTranscribe, onGenera
         )}
       </div>
 
-      {demoMode && (
+      {backend === 'browser' && (
         <p className="mt-3 text-xs text-gray-500">
           The note is written by a small model running on your own graphics card through the
           browser. It downloads once, about 1 GB, and needs Chrome or Edge.
+        </p>
+      )}
+
+      {backend === 'groq' && (
+        <p className="mt-3 rounded bg-red-50 px-3 py-2 text-xs text-red-900">
+          On this hosted demo the transcript is sent to Groq, an outside company, to be turned
+          into a note. Run Vaidya on your own machine to keep it local.
         </p>
       )}
 

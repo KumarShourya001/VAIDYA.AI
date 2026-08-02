@@ -23,19 +23,7 @@ export default function AudioInput({ onEncounter, busy, setBusy, demoMode }) {
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
 
         if (demoMode) {
-          // no model on the host, so transcribe here and send only the text
-          await send(async () => {
-            setProgress({ percent: 0, label: 'preparing the speech model' })
-            // imported here, not at the top: transformers.js is large and most
-            // visitors never record anything
-            const { transcribe } = await import('./browserAsr')
-            const transcript = await transcribe(blob, (p) =>
-              setProgress({ percent: p.percent, label: 'downloading the speech model' }),
-            )
-            setProgress({ percent: 100, label: 'transcribing' })
-            return importBrowserTranscript(transcript)
-          })
-          setProgress(null)
+          await send(() => transcribeHere(blob))
         } else {
           const file = new File([blob], 'recording.webm', { type: recorder.mimeType })
           await send(() => uploadAudio(file, 'mic', null))
@@ -53,6 +41,24 @@ export default function AudioInput({ onEncounter, busy, setBusy, demoMode }) {
   function stopRecording() {
     recorderRef.current?.stop()
     setRecording(false)
+  }
+
+  // the host has no speech model, so recordings and uploaded files are both
+  // transcribed here and only the text is sent
+  async function transcribeHere(blob) {
+    setProgress({ percent: 0, label: 'preparing the speech model' })
+    try {
+      // imported here, not at the top: transformers.js is large and most
+      // visitors never transcribe anything
+      const { transcribe } = await import('./browserAsr')
+      const transcript = await transcribe(blob, (p) =>
+        setProgress({ percent: p.percent, label: 'downloading the speech model' }),
+      )
+      setProgress({ percent: 100, label: 'transcribing' })
+      return await importBrowserTranscript(transcript)
+    } finally {
+      setProgress(null)
+    }
   }
 
   async function send(fn) {
@@ -76,9 +82,8 @@ export default function AudioInput({ onEncounter, busy, setBusy, demoMode }) {
 
       {demoMode && (
         <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Recording is transcribed by a speech model running inside your own browser, so the
-          audio never leaves your device. The model downloads once, about 40 MB. Turning the
-          transcript into a clinical note needs the full local install.
+          Recordings and uploaded files are transcribed by a speech model running inside your own
+          browser, so the audio never leaves your device. The model downloads once, around 150 MB.
         </p>
       )}
 
@@ -93,20 +98,16 @@ export default function AudioInput({ onEncounter, busy, setBusy, demoMode }) {
           </button>
         )}
 
-        <label
-          className={`${btn} border border-gray-300 bg-white text-gray-800 ${
-            demoMode ? 'pointer-events-none opacity-40' : 'cursor-pointer'
-          }`}
-        >
+        <label className={`${btn} cursor-pointer border border-gray-300 bg-white text-gray-800`}>
           Upload .wav / .mp3
           <input
             type="file"
             accept=".wav,.mp3,audio/*"
             className="hidden"
-            disabled={busy || demoMode}
+            disabled={busy}
             onChange={(e) => {
               const f = e.target.files?.[0]
-              if (f) send(() => uploadAudio(f, 'upload', null))
+              if (f) send(() => (demoMode ? transcribeHere(f) : uploadAudio(f, 'upload', null)))
               e.target.value = '' // lets the same file be picked twice in a row
             }}
           />

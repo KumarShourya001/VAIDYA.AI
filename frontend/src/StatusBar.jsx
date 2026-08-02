@@ -1,49 +1,63 @@
+// What the bar claims has to match where the work actually happens, so the mode
+// comes from the server's chat_backend rather than from demo mode alone.
+const MODES = {
+  ollama: {
+    dot: 'bg-green-500',
+    box: 'bg-green-50 text-green-900',
+    text: 'On device — nothing leaves this machine',
+  },
+  browser: {
+    dot: 'bg-amber-500',
+    box: 'bg-amber-50 text-amber-900',
+    text: 'Demo — speech and notes run inside your browser',
+  },
+  groq: {
+    dot: 'bg-red-500',
+    box: 'bg-red-50 text-red-900',
+    text: 'Demo — notes and answers are sent to Groq',
+  },
+}
+
+function ms(value) {
+  if (value == null) return '—'
+  return value >= 1000 ? `${(value / 1000).toFixed(1)} s` : `${value} ms`
+}
+
 export default function StatusBar({ health, timings, patient, onSignOut }) {
-  const dot = (ok) => (ok ? 'bg-green-500' : 'bg-red-500')
+  const mode = MODES[health?.chat_backend] ?? MODES.ollama
 
   return (
-    <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 bg-white px-6 py-3 text-sm">
-      <span className="font-semibold text-gray-900">Vaidya.AI</span>
+    <div className="border-b border-gray-200 bg-white">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-6 py-2.5 text-sm">
+        <span className="font-semibold text-gray-900">Vaidya.AI</span>
 
-      {health?.demo_mode ? (
-        <span className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-900">
-          <span className="h-2 w-2 rounded-full bg-amber-500" />
-          Demo mode — replaying a bundled consultation, no live inference
+        <span className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs ${mode.box}`}>
+          <span className={`h-2 w-2 shrink-0 rounded-full ${mode.dot}`} />
+          {mode.text}
         </span>
-      ) : (
-        <span className="flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-green-800">
-          <span className="h-2 w-2 rounded-full bg-green-500" />
-          Offline — processing on device
+
+        <span className="hidden text-xs text-gray-500 lg:inline">
+          {health?.asr_model ? `whisper ${health.asr_model} · ${health.asr_device}` : 'speech —'}
+          {health?.llm_model ? ` · ${health.llm_model}` : ''}
         </span>
-      )}
 
-      <span className="flex items-center gap-2 text-gray-600">
-        <span className={`h-2 w-2 rounded-full ${dot(health?.ffmpeg)}`} />
-        ffmpeg
-      </span>
-      <span className="flex items-center gap-2 text-gray-600">
-        <span className={`h-2 w-2 rounded-full ${dot(health?.ollama)}`} />
-        {health?.llm_model ?? 'llm'}
-      </span>
-      <span className="flex items-center gap-2 text-gray-600">
-        <span className="h-2 w-2 rounded-full bg-gray-400" />
-        whisper {health?.asr_model ?? '?'} on {health?.asr_device ?? '?'}
-      </span>
+        <div className="ml-auto flex items-center gap-4">
+          <span className="font-mono text-xs text-gray-600">
+            ASR {ms(timings?.asr_ms)} · LLM {ms(timings?.llm_ms)}
+          </span>
 
-      <div className="ml-auto flex items-center gap-4">
-        <div className="flex gap-3 font-mono text-xs text-gray-700">
-          <span>ASR {timings?.asr_ms != null ? `${timings.asr_ms} ms` : '—'}</span>
-          <span>LLM {timings?.llm_ms != null ? `${timings.llm_ms} ms` : '—'}</span>
+          {patient && (
+            <span className="flex items-center gap-3 border-l border-gray-200 pl-4">
+              <span className="text-gray-800">{patient.full_name}</span>
+              <button
+                className="text-xs text-gray-500 underline-offset-2 hover:text-gray-900 hover:underline"
+                onClick={onSignOut}
+              >
+                sign out
+              </button>
+            </span>
+          )}
         </div>
-
-        {patient && (
-          <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
-            <span className="text-gray-700">{patient.full_name}</span>
-            <button className="text-xs text-gray-500 hover:text-gray-900" onClick={onSignOut}>
-              sign out
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )
