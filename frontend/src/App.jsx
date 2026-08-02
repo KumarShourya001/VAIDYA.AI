@@ -14,7 +14,7 @@ import {
   saveNote,
   transcribeEncounter,
 } from './api'
-import StatusBar from './StatusBar'
+import Header from './Header'
 import Login from './Login'
 import Portfolio from './Portfolio'
 import Chat from './Chat'
@@ -162,25 +162,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <StatusBar health={health} timings={current} patient={patient} onSignOut={handleSignOut} />
-
-      <div className="border-b border-gray-200 bg-white px-6">
-        <div className="mx-auto flex max-w-6xl gap-1">
-          {TABS.map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setView(key)}
-              className={`border-b-2 px-4 py-2 text-sm ${
-                view === key
-                  ? 'border-gray-900 font-medium text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <Header
+        health={health}
+        timings={current}
+        patient={patient}
+        tabs={TABS}
+        view={view}
+        onView={setView}
+        onSignOut={handleSignOut}
+      />
 
       <div className="mx-auto max-w-6xl p-6">
         {view === 'portfolio' && portfolio && (

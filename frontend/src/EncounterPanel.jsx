@@ -30,32 +30,43 @@ export default function EncounterPanel({ encounter, busy, onTranscribe, onGenera
         ))}
       </dl>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button className={`${btn} bg-gray-900 text-white`} onClick={onTranscribe} disabled={busy}>
-          {hasTranscript ? 'Re-transcribe' : 'Transcribe'}
-        </button>
+      {/* the two stages are separated on purpose: the model picker sits beside the
+          note button because it chooses the note model, not the speech one */}
+      <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
+        <div>
+          <p className="mb-1 text-xs text-gray-500">1. Speech to text</p>
+          <button className={`${btn} bg-gray-900 text-white`} onClick={onTranscribe} disabled={busy}>
+            {hasTranscript ? 'Re-transcribe' : 'Transcribe'}
+          </button>
+        </div>
 
-        <button
-          className={`${btn} border border-gray-300 bg-white text-gray-800`}
-          onClick={() => onGenerateNote(model)}
-          disabled={busy || !hasTranscript}
-        >
-          {encounter.note ? 'Regenerate note' : 'Generate note'}
-        </button>
+        <div>
+          <p className="mb-1 text-xs text-gray-500">2. Text to clinical note</p>
+          <div className="flex items-center gap-2">
+            <button
+              className={`${btn} border border-gray-300 bg-white text-gray-800`}
+              onClick={() => onGenerateNote(model)}
+              disabled={busy || !hasTranscript}
+            >
+              {encounter.note ? 'Regenerate note' : 'Generate note'}
+            </button>
 
-        {/* the 7B model is slower but catches medications the 3B one drops */}
-        {!demoMode && (
-          <select
-            className="rounded border border-gray-300 px-2 py-2 text-sm"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            disabled={busy}
-          >
-            {MODELS.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        )}
+            {/* the 7B model is slower but catches medications the 3B one drops */}
+            {!demoMode && (
+              <select
+                className="rounded border border-gray-300 px-2 py-2 text-sm"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                disabled={busy}
+                title="Which model writes the note. Speech recognition always uses whisper."
+              >
+                {MODELS.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
       </div>
 
       {backend === 'browser' && (
