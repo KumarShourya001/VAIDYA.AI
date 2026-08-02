@@ -6,7 +6,9 @@ import {
   getEncounter,
   getHealth,
   getPortfolio,
+  getPrompts,
   getToken,
+  importBrowserNote,
   listEncounters,
   logout,
   saveNote,
@@ -48,6 +50,7 @@ export default function App() {
   const [current, setCurrent] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [llmProgress, setLlmProgress] = useState(null)
 
   // hash changes do not remount the app, so track it as state
   const [hash, setHash] = useState(window.location.hash)
@@ -105,6 +108,34 @@ export default function App() {
     } finally {
       setBusy(false)
     }
+  }
+
+  // locally the server has Ollama; on the hosted demo the model runs in the browser
+  async function handleGenerateNote(model) {
+    if (!health?.demo_mode) {
+      return run(() => generateNote(current.id, model))
+    }
+
+    await run(async () => {
+      const llm = await import('./browserLlm')
+      const supported = await llm.support()
+      if (!supported.ok) {
+        throw new Error(
+          `${supported.reason} You can still open the bundled sample consultation, ` +
+            'which comes with a note already generated.',
+        )
+      }
+
+      setLlmProgress({ percent: 0, label: 'starting the model' })
+      try {
+        const prompts = await getPrompts()
+        const transcript = current.segments.map((s) => `${s.speaker}: ${s.text}`).join('\n')
+        const result = await llm.generateNote(prompts, transcript, setLlmProgress)
+        return await importBrowserNote(current.id, result.note, result.llm_ms, result.model)
+      } finally {
+        setLlmProgress(null)
+      }
+    })
   }
 
   async function handleSignOut() {
@@ -187,7 +218,9 @@ export default function App() {
                     encounter={current}
                     busy={busy}
                     onTranscribe={() => run(() => transcribeEncounter(current.id))}
-                    onGenerateNote={(model) => run(() => generateNote(current.id, model))}
+                    onGenerateNote={handleGenerateNote}
+                    demoMode={health?.demo_mode}
+                    progress={llmProgress}
                   />
                   <TranscriptView
                     encounterId={current.id}

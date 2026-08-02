@@ -193,6 +193,37 @@ the GPU is both faster and more accurate than tiny in a browser.
 A transcript made this way stops at the transcript: turning it into a clinical
 note still needs the language model, so that step only works on a full install.
 
+### The language model in the browser
+
+No free container host has enough memory for Ollama — `llama3.2:3b` wants about
+3 GB and a free instance gives you around 512 MB — so on the hosted site the
+note generator and the assistant run a small model on the visitor's own GPU
+through WebGPU, using `@mlc-ai/web-llm`. Nothing they type or record leaves
+their machine, which is the same reason speech runs there too.
+
+The prompts still come from `prompts.py`: the browser fetches them from
+`/api/prompts`, so there is one copy of the wording to tune, not two. A note
+written this way is posted to `/api/encounters/{id}/note/import`, where the
+server validates it against the same Pydantic model and builds the FHIR bundle.
+
+What it costs:
+
+- about 1 GB downloaded once, then cached by the browser
+- Chrome or Edge on a desktop, with `shader-f16`. Safari and default Firefox
+  cannot run it, and the app says so plainly instead of failing
+- a 1.5B model writes weaker notes than the 3B you run locally, and much weaker
+  than qwen2.5:7b
+
+Locally none of this is used: the server talks to Ollama as before.
+
+Not yet verified: how long a note actually takes. The pipeline was tested up to
+and including loading the model into the GPU, but generation could not be timed
+in the test environment, where the browser tab was hidden and therefore throttled
+to zero frames, and WebGPU had bound to an Intel integrated GPU rather than the
+discrete card. Browsers often pick the integrated GPU by default, which is why
+`support()` now asks for a high-performance adapter. **Time this on the machine
+you plan to demo from before relying on it.**
+
 ### Demo mode
 
 A cloud host has no GPU and no Ollama, so `VAIDYA_DEMO_MODE=true` makes the

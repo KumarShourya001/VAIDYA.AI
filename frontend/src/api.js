@@ -47,6 +47,16 @@ export const getEmergencyCard = (patientId) => req(`/api/emergency/${patientId}`
 
 export const sendChat = (message, history) => req('/api/chat', json('POST', { message, history }))
 
+export const getPrompts = () => req('/api/prompts')
+
+export const getChatContext = () => req('/api/chat/context')
+
+export const importBrowserNote = (id, note, llmMs, model) =>
+  req(
+    `/api/encounters/${id}/note/import?llm_ms=${llmMs}&model=${encodeURIComponent(model)}`,
+    json('POST', note),
+  )
+
 export const listEncounters = () => req('/api/encounters')
 
 export const getEncounter = (id) => req(`/api/encounters/${id}`)

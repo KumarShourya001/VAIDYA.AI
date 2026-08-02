@@ -39,6 +39,26 @@ class ChatReply(BaseModel):
     llm_ms: int
 
 
+@router.get("/prompts")
+def prompt_templates(patient: Patient = Depends(auth.current_patient)):
+    # a model running in the visitor's browser still uses the prompts from
+    # prompts.py, so there is only ever one copy of the wording to tune
+    from .schemas import NoteDraft
+
+    return {
+        "note_system": prompts.NOTE_SYSTEM,
+        "note_user": prompts.NOTE_USER,
+        "note_schema": NoteDraft.model_json_schema(),
+        "chat_system": prompts.CHAT_SYSTEM,
+        "retry": prompts.RETRY,
+    }
+
+
+@router.get("/chat/context")
+def chat_context(patient: Patient = Depends(auth.current_patient)):
+    return {"record": record_text(patient)}
+
+
 @router.post("/chat", response_model=ChatReply)
 def ask(body: ChatRequest, patient: Patient = Depends(auth.current_patient)):
     if config.DEMO_MODE:

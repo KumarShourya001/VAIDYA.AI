@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { sendChat } from './api'
+import { getChatContext, getPrompts, sendChat } from './api'
 
 const SUGGESTIONS = [
   'What did the doctor say is wrong with me?',
@@ -12,6 +12,7 @@ export default function Chat({ demoMode }) {
   const [history, setHistory] = useState([])
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState(null)
   const [error, setError] = useState(null)
 
   async function ask(text) {
@@ -24,13 +25,33 @@ export default function Chat({ demoMode }) {
     setHistory(next)
 
     try {
-      const reply = await sendChat(text, history)
+      const reply = demoMode ? await askInBrowser(next) : await sendChat(text, history)
       setHistory([...next, { role: 'assistant', content: reply.reply }])
     } catch (e) {
       setError(String(e.message))
     } finally {
       setBusy(false)
+      setProgress(null)
     }
+  }
+
+  // on the hosted demo there is no Ollama, so the model runs on the visitor's GPU
+  async function askInBrowser(turns) {
+    const llm = await import('./browserLlm')
+    const supported = await llm.support()
+    if (!supported.ok) {
+      return {
+        reply:
+          `${supported.reason}\n\nThe assistant needs a language model, and this hosted demo ` +
+          'has none of its own. Your record, the consultation note and the emergency card are ' +
+          'all still real.\n\nTo use it, run Vaidya on your own machine:\n' +
+          'https://github.com/KumarShourya001/VAIDYA.AI',
+      }
+    }
+
+    setProgress({ percent: 0, label: 'starting the model' })
+    const [prompts, context] = [await getPrompts(), await getChatContext()]
+    return llm.chat(prompts, context.record, turns, setProgress)
   }
 
   return (
@@ -46,8 +67,9 @@ export default function Chat({ demoMode }) {
         <div className="flex min-h-[280px] flex-col gap-3 px-5 py-4">
           {demoMode && (
             <p className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              The assistant needs a language model running on the machine, which this hosted
-              demo does not have. Run it on your own machine to try it:{' '}
+              The model runs on your own graphics card through the browser, so nothing you type
+              leaves this device. It downloads once, about 1 GB, and needs Chrome or Edge. On your
+              own machine Vaidya uses a larger model instead:{' '}
               <a
                 className="font-medium underline"
                 href="https://github.com/KumarShourya001/VAIDYA.AI"
@@ -86,7 +108,19 @@ export default function Chat({ demoMode }) {
             </div>
           ))}
 
-          {busy && <p className="self-start text-sm text-gray-400">thinking…</p>}
+          {progress && (
+            <div className="self-start">
+              <p className="mb-1 text-sm text-gray-500">
+                {progress.label}
+                {progress.percent > 0 && progress.percent < 100 ? ` — ${progress.percent}%` : '…'}
+              </p>
+              <div className="h-1.5 w-48 overflow-hidden rounded bg-gray-200">
+                <div className="h-full bg-gray-900 transition-all" style={{ width: `${progress.percent}%` }} />
+              </div>
+            </div>
+          )}
+
+          {busy && !progress && <p className="self-start text-sm text-gray-400">thinking…</p>}
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
 

@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 
 const MODELS = ['llama3.2:3b', 'qwen2.5:7b']
 
-export default function EncounterPanel({ encounter, busy, onTranscribe, onGenerateNote }) {
+export default function EncounterPanel({ encounter, busy, onTranscribe, onGenerateNote, demoMode, progress }) {
   const [model, setModel] = useState(MODELS[0])
 
   const rows = [
@@ -44,17 +44,38 @@ export default function EncounterPanel({ encounter, busy, onTranscribe, onGenera
         </button>
 
         {/* the 7B model is slower but catches medications the 3B one drops */}
-        <select
-          className="rounded border border-gray-300 px-2 py-2 text-sm"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          disabled={busy}
-        >
-          {MODELS.map((m) => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
+        {!demoMode && (
+          <select
+            className="rounded border border-gray-300 px-2 py-2 text-sm"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            disabled={busy}
+          >
+            {MODELS.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        )}
       </div>
+
+      {demoMode && (
+        <p className="mt-3 text-xs text-gray-500">
+          The note is written by a small model running on your own graphics card through the
+          browser. It downloads once, about 1 GB, and needs Chrome or Edge.
+        </p>
+      )}
+
+      {progress && (
+        <div className="mt-3">
+          <p className="mb-1 text-sm text-gray-700">
+            {progress.label}
+            {progress.percent > 0 && progress.percent < 100 ? ` — ${progress.percent}%` : '…'}
+          </p>
+          <div className="h-1.5 w-full overflow-hidden rounded bg-gray-200">
+            <div className="h-full bg-gray-900 transition-all" style={{ width: `${progress.percent}%` }} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -9,7 +9,7 @@ from . import asr, audio, auth, config, fhir_map, llm, speakers
 from .db import get_db
 from .encounters import build_detail, owned
 from .models_db import Encounter, Note, Segment, now
-from .schemas import BrowserTranscript, EncounterDetail, EncounterOut
+from .schemas import BrowserTranscript, ClinicalNote, EncounterDetail, EncounterOut
 
 router = APIRouter(prefix="/api", tags=["pipeline"])
 
@@ -181,6 +181,33 @@ def generate_note(encounter_id: int, model: str = None,
     db.flush()  # the bundle builder reads enc.note, so the note must exist first
     fhir_map.rebuild_bundle(db, enc)
 
+    db.commit()
+    db.refresh(enc)
+    return build_detail(enc)
+
+
+@router.post("/encounters/{encounter_id}/note/import", response_model=EncounterDetail)
+def import_browser_note(encounter_id: int, note: ClinicalNote, llm_ms: int = 0,
+                        model: str = "browser", patient=Depends(auth.current_patient),
+                        db: Session = Depends(get_db)):
+    # written by a model in the visitor's browser; the server only validates and stores
+    enc = owned(encounter_id, patient, db)
+    if not enc.segments:
+        raise HTTPException(400, "transcribe the encounter first")
+
+    raw_json = note.model_dump_json()
+    if enc.note:
+        enc.note.raw_note_json = raw_json
+        enc.note.updated_at = now()
+    else:
+        enc.note = Note(raw_note_json=raw_json)
+
+    enc.llm_ms = llm_ms
+    enc.llm_model = model
+    enc.status = "noted"
+
+    db.flush()
+    fhir_map.rebuild_bundle(db, enc)
     db.commit()
     db.refresh(enc)
     return build_detail(enc)
