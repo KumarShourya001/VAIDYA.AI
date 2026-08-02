@@ -3,12 +3,23 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from . import auth, llm, prompts
+from . import auth, config, llm, prompts
 from .models_db import Patient
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 MAX_HISTORY = 10
+
+# a hosted demo has no model attached. Say so plainly rather than failing with a
+# 503 the user reads as the whole app being broken.
+DEMO_REPLY = (
+    "This hosted demo cannot answer questions. The assistant runs a language model on "
+    "the clinician's own machine, and this server has no model attached to it.\n\n"
+    "Everything else you can see is real: your record, the consultation note and the "
+    "emergency card are all live data.\n\n"
+    "To try the assistant, run Vaidya locally. There it answers only from your own "
+    "record, and it will not recommend or change any medicine."
+)
 
 
 class ChatTurn(BaseModel):
@@ -28,6 +39,9 @@ class ChatReply(BaseModel):
 
 @router.post("/chat", response_model=ChatReply)
 def ask(body: ChatRequest, patient: Patient = Depends(auth.current_patient)):
+    if config.DEMO_MODE:
+        return ChatReply(reply=DEMO_REPLY, llm_ms=0)
+
     history = [t.model_dump() for t in body.history[-MAX_HISTORY:]]
     history.append({"role": "user", "content": body.message})
 

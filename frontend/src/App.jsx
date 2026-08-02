@@ -158,7 +158,7 @@ export default function App() {
           />
         )}
 
-        {view === 'chat' && <Chat />}
+        {view === 'chat' && <Chat demoMode={health?.demo_mode} />}
 
         {view === 'emergency' && <EmergencyCard patientId={patient.id} />}
 

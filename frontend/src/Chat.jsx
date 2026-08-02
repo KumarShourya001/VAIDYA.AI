@@ -8,7 +8,7 @@ const SUGGESTIONS = [
   'What happens at my next appointment?',
 ]
 
-export default function Chat() {
+export default function Chat({ demoMode }) {
   const [history, setHistory] = useState([])
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -44,6 +44,13 @@ export default function Chat() {
         </div>
 
         <div className="flex min-h-[280px] flex-col gap-3 px-5 py-4">
+          {demoMode && (
+            <p className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              The assistant needs a language model running on the machine, which this hosted
+              demo does not have. Run Vaidya locally to try it.
+            </p>
+          )}
+
           {history.length === 0 && (
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
