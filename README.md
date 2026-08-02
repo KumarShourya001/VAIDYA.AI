@@ -144,6 +144,7 @@ VITE_API_URL=https://<your-backend-host>
 VAIDYA_DEMO_MODE=true
 VAIDYA_ORIGINS=https://<your-vercel-domain>
 DATABASE_URL=postgresql://...      # optional; falls back to sqlite on the disk
+VAIDYA_GROQ_API_KEY=gsk_...        # optional; see "Which model answers" below
 ```
 
 ### Hosted database
@@ -170,15 +171,42 @@ pragma is conditional.
 
 One caveat: uploaded recordings still go to `VAIDYA_DATA_DIR` on the host's
 filesystem, not into the database. On a host without a persistent disk they
-disappear when the container restarts. In demo mode nothing is uploaded, so it
-does not arise; if you want real uploads in the cloud, they need object storage.
+disappear when the container restarts. In demo mode no audio is uploaded at all,
+so it does not arise; if you want real uploads in the cloud, they need object
+storage.
+
+### Which model answers
+
+There are three possibilities and the app never guesses. `/api/health` reports
+`chat_backend`, and the status bar and the note and chat screens all render from
+it, so what is on screen matches where the work actually happens.
+
+| Setting | `chat_backend` | Where notes and answers come from |
+|---|---|---|
+| no demo mode | `ollama` | this machine, nothing leaves it |
+| demo mode | `browser` | a small model on the visitor's own GPU |
+| demo mode + `VAIDYA_GROQ_API_KEY` | `groq` | Groq's API |
+
+The Groq path sends the transcript, and for chat the patient's whole record, to
+a third party. That contradicts the claim the rest of the project rests on, so
+the interface says so in red on both screens rather than leaving it to be
+discovered. It is a deliberate trade for a hosted demo that works in any
+browser; the honest demo is still a local install.
+
+`use_groq()` is false whenever demo mode is off, so a key left in the
+environment cannot redirect a real install.
+
+Speech never goes to Groq. Recordings and uploaded files are transcribed in the
+browser in every hosted configuration, so the audio itself stays on the device
+even when the text does not.
 
 ### Speech in the browser
 
-The hosted site has no speech model, but recording still works there: whisper
-tiny runs inside the visitor's browser through transformers.js, and only the
-resulting text is sent to the server. The audio itself never leaves the device,
-so the privacy claim holds on the web as well as on a laptop.
+The hosted site has no speech model, but recording and file upload both still
+work there: whisper tiny runs inside the visitor's browser through
+transformers.js, and only the resulting text is sent to the server. The audio
+itself never leaves the device, so that part of the privacy claim holds on the
+web as well as on a laptop.
 
 The model is about 150 MB at fp32 and downloads once, then the browser caches
 it. Int8 builds are smaller but the whisper decoder ones currently fail to load
@@ -190,16 +218,15 @@ roughly 3x realtime, with usable timestamps.
 Locally the server does the transcription instead, because whisper `small` on
 the GPU is both faster and more accurate than tiny in a browser.
 
-A transcript made this way stops at the transcript: turning it into a clinical
-note still needs the language model, so that step only works on a full install.
-
 ### The language model in the browser
 
 No free container host has enough memory for Ollama — `llama3.2:3b` wants about
-3 GB and a free instance gives you around 512 MB — so on the hosted site the
-note generator and the assistant run a small model on the visitor's own GPU
+3 GB and a free instance gives you around 512 MB — so without a Groq key the
+hosted site runs the note generator and the assistant on the visitor's own GPU
 through WebGPU, using `@mlc-ai/web-llm`. Nothing they type or record leaves
 their machine, which is the same reason speech runs there too.
+
+With `VAIDYA_GROQ_API_KEY` set this path is not used; see "Which model answers".
 
 The prompts still come from `prompts.py`: the browser fetches them from
 `/api/prompts`, so there is one copy of the wording to tune, not two. A note
@@ -216,7 +243,7 @@ What it costs:
 
 Locally none of this is used: the server talks to Ollama as before.
 
-Not yet verified: how long a note actually takes. The pipeline was tested up to
+Not yet verified: how long a note takes on this path. The pipeline was tested up to
 and including loading the model into the GPU, but generation could not be timed
 in the test environment, where the browser tab was hidden and therefore throttled
 to zero frames, and WebGPU had bound to an Intel integrated GPU rather than the
@@ -226,22 +253,32 @@ you plan to demo from before relying on it.**
 
 ### Demo mode
 
-A cloud host has no GPU and no Ollama, so `VAIDYA_DEMO_MODE=true` makes the
-backend replay precomputed results for the bundled sample instead of running
-models. The whole flow still demonstrates — transcript, speaker labels, note,
-editing, FHIR bundle — and the status bar says plainly that it is replaying
-rather than inferring. Any other audio is refused with an explanation instead of
-hanging or silently failing.
+A cloud host has no GPU and no Ollama, so `VAIDYA_DEMO_MODE=true` tells the
+backend not to reach for models it does not have. The bundled sample is served
+from precomputed results, so the whole flow still demonstrates — transcript,
+speaker labels, note, editing, FHIR bundle — without any inference on the host.
 
 The precomputed files are `data/samples/sample_consult_01.segments.json` and
 `.note.json`, generated on a GPU machine with qwen2.5:7b.
 
-Test it locally before deploying:
+Audio the visitor supplies never reaches the server: recordings and uploads are
+transcribed in the browser and posted as text to `/api/audio/browser`. The
+server's own `/transcribe` route is only used by the bundled sample in demo
+mode, and refuses anything else with an explanation rather than hanging.
+
+Notes follow whichever backend is configured, per "Which model answers".
+
+Test both configurations locally before deploying:
 
 ```
 cd backend
 .venv\Scripts\python.exe -m uvicorn app.main:app --env-file .env.demo --port 8001
+.venv\Scripts\python.exe -m uvicorn app.main:app --env-file .env.groq --port 8002
 ```
+
+`.env.groq` carries a placeholder key, which is enough to check that requests
+are routed to Groq rather than replayed. Put a real key in it to check the
+answers themselves, and do not commit that.
 
 ### Deploying does change the privacy story
 
